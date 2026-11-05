@@ -1,0 +1,1766 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b202c">
+<meta name="description" content="小蝦辦公室：把多角色 AI 工作流變成像素辦公室。角色會依真實執行狀態走動、思考、讀檔、寫檔、等待核准。單檔、跨平台、響應式。">
+<title>小蝦辦公室 · 多角色工作流</title>
+<style>
+:root{--bg:#12151d;--panel:#1b202c;--panel2:#262d3d;--panel3:#303951;--ink:#e9edf6;--mute:#9aa5c0;--line:#3a4560;--accent:#ffb84d;--accent-ink:#2a1a00;--acc2:#4dd4c0;--ok:#5fd37a;--warn:#ff9c6b;--bad:#ff6b6b;--info:#6aa8ff;--vio:#b48cff;--tool:#151a26;--soft:#243247;--r:6px;--hh:56px;--sh:0px}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;-webkit-tap-highlight-color:transparent;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--acc2);outline-offset:1px}
+/* ---- 通用元件 ---- */
+button{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:5px 12px;background:var(--panel3);border:2px solid #000;border-radius:var(--r);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35),inset 0 2px 0 rgba(255,255,255,.08);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+button:hover{background:#3b4666}
+button:active{transform:translateY(1px);box-shadow:inset 0 2px 0 rgba(0,0,0,.35)}
+button:disabled{opacity:.45;pointer-events:none}
+button.pri{background:var(--accent);color:var(--accent-ink);font-weight:700}button.pri:hover{background:#ffc873}
+button.ok{background:#2e7d46}button.ok:hover{background:#38965a}
+button.bad{background:#8e3434}button.bad:hover{background:#a74141}
+button.sm,button.cp{min-height:30px;padding:2px 9px;font-size:13px}
+button.on{outline:2px solid var(--acc2);outline-offset:-2px}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;min-width:0;padding:7px 9px;min-height:38px;background:#0f131b;border:2px solid #000;border-radius:var(--r);color:var(--ink)}
+textarea{resize:vertical;min-height:0}
+label{display:block;font-size:12px;color:var(--mute);margin:8px 0 2px}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row>select,.row>input[type=text]{flex:1;width:auto}
+.grow{flex:1;min-width:0}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink);margin:6px 12px 0 0}
+.mut,.sub{color:var(--mute);font-size:12px}
+code{background:#0d1017;padding:1px 6px;border-radius:4px;font:12px ui-monospace,Menlo,Consolas,monospace;color:#ffd45c}
+.lab{font-size:12px;color:var(--mute);margin:10px 0 2px;font-weight:600}
+.card{background:var(--panel2);border:2px solid #000;border-radius:var(--r);padding:8px 10px;margin:8px 0}
+details.card>summary{cursor:pointer;font-weight:600;display:flex;align-items:center;gap:8px}
+.step{border-left:4px solid var(--accent)}
+.sec{border-top:2px solid #000;padding:4px 0}.sec:first-child{border-top:0}
+.sec>details>summary{font-weight:700;cursor:pointer;padding:8px 0}
+.folder{font-size:13px;margin-top:6px;word-break:break-all}.bad-t{color:var(--warn)}
+.pill{display:inline-block;padding:0 8px;border-radius:99px;font-size:12px;font-weight:700;color:#10131a;background:var(--mute);vertical-align:1px}
+.st-idle{background:#8d97b3}.st-thinking{background:#9ad0ff}.st-reading{background:var(--vio)}.st-working{background:var(--info)}.st-permission{background:var(--bad)}.st-waiting{background:#ffd45c}
+.av{width:36px;height:39px;image-rendering:pixelated;flex:none;background:rgba(255,255,255,.05);border-radius:4px}
+.sav{width:24px;height:26px;image-rendering:pixelated;flex:none}
+.seg{display:flex;gap:6px;margin:6px 0}.seg button{flex:1}
+/* ---- 頂欄 ---- */
+.top{display:flex;align-items:center;gap:8px;padding:8px 12px;padding-top:max(8px,env(safe-area-inset-top));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));background:var(--panel);border-bottom:2px solid #000;z-index:30;flex:none}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:.5px;white-space:nowrap}
+.brand svg{width:26px;height:26px;image-rendering:pixelated}
+#btnPend{background:var(--bad);font-weight:700;animation:blink 1.4s steps(2) infinite}
+@keyframes blink{50%{filter:brightness(1.35)}}
+/* ---- 版面 ---- */
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) clamp(400px,36vw,560px);min-height:0}
+#stage{position:relative;display:flex;align-items:center;justify-content:center;padding:12px;min-width:0;min-height:0;overflow:hidden;background:radial-gradient(circle at 50% 40%,#202737 0,#12151d 75%)}
+#cv{display:block;image-rendering:pixelated;image-rendering:crisp-edges;image-rendering:pixelated;border:3px solid #000;box-shadow:0 0 0 3px #323b52,0 14px 40px rgba(0,0,0,.55);background:#0d1017;max-width:100%;cursor:pointer}
+#cv.edit{touch-action:none;cursor:crosshair}
+.hint{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);max-width:92%;background:rgba(0,0,0,.65);padding:4px 10px;border-radius:99px;font-size:12px;color:var(--mute);pointer-events:none;text-align:center}
+aside{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-left:2px solid #000}
+.tabs{display:flex;background:#151925;border-bottom:2px solid #000;flex:none;z-index:15}
+.tab{flex:1;min-height:44px;border:0;border-radius:0;background:none;box-shadow:none;color:var(--mute);font-weight:700;white-space:nowrap;padding:8px 2px}
+.tab:hover{background:#1b202c}.tab:active{transform:none}
+.tab[aria-selected=true]{color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent);background:var(--panel)}
+.panes{flex:1;overflow:auto;padding:12px;padding-bottom:max(16px,env(safe-area-inset-bottom));min-height:0}
+.pane[hidden]{display:none}
+/* ---- 執行頁 ---- */
+.bar textarea{height:72px;margin-bottom:6px}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.acts #run,.acts #stop,.acts #hist{grid-column:1/-1}
+#pend{margin:10px 0;border:2px solid var(--bad);border-radius:var(--r);padding:8px 10px;background:rgba(255,107,107,.08)}
+#pend .ph{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#pend .card{margin:8px 0 0}
+#pend pre{margin:6px 0;white-space:pre-wrap;word-break:break-all;max-height:150px;overflow:auto;background:var(--tool);padding:6px 8px;border-radius:6px;font:12px ui-monospace,Menlo,Consolas,monospace}
+#pend textarea{height:130px;margin:6px 0}
+#pend .del{border-color:var(--bad)}
+#prog{margin:10px 0;padding:8px 10px;border:2px solid #000;border-radius:var(--r);background:var(--panel2)}
+.pbar{height:8px;background:var(--tool);border-radius:4px;overflow:hidden}.pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--ok));transition:width .3s}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px}
+#stat{font-size:12.5px;color:var(--mute)}
+#prog.col #chips{display:none}
+#chips{display:flex;align-items:stretch;gap:4px;overflow-x:auto;padding:14px 6px 10px}
+.grp{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.arr{align-self:center;color:var(--mute);font-size:20px;padding:0 2px}
+.note{--bgc:#fff3a3;position:relative;flex:none;width:150px;min-height:104px;padding:16px 10px 12px;background:var(--bgc);color:#2b2b1f;border-radius:2px 2px 16px 2px;box-shadow:0 3px 8px rgba(0,0,0,.4);font-size:12.5px;line-height:1.4;transform:rotate(var(--rot,-1.2deg));cursor:pointer;transition:transform .2s,opacity .2s}
+.note:hover{transform:rotate(0) translateY(-2px)}
+.note::before{content:"";position:absolute;top:-7px;left:50%;width:46px;height:14px;margin-left:-23px;background:rgba(255,255,255,.6);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.note b{display:block;font-size:13.5px}
+.note .tk{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:4px 0 6px}
+.note small{display:block;color:#5a5a45;font-size:11px}
+.note .stamp{position:absolute;right:8px;bottom:8px;font-size:12px;font-weight:700;border:2px solid currentColor;border-radius:6px;padding:0 6px;transform:rotate(-8deg);background:rgba(255,255,255,.35)}
+.note.c0{--bgc:#fff3a3}.note.c1{--bgc:#ffc9d9}.note.c2{--bgc:#bfe3ff}.note.c3{--bgc:#c8f0c0}.note.c4{--bgc:#ffd9a8}.note.c5{--bgc:#e0cdfb}
+.note.wait{opacity:.85}.note.skip{opacity:.45}
+.note.run{outline:3px solid var(--acc2);animation:pulse 1.4s ease-in-out infinite}
+.note.run .stamp{color:#0f6b5c}.note.ok .stamp{color:#1b6b3a}
+.note.bad{outline:3px dashed #c4501f}.note.bad .stamp,.note.err .stamp{color:#c4501f}
+@keyframes pulse{50%{transform:rotate(0) scale(1.04)}}
+#detail .drow{display:flex;gap:10px;align-items:center}
+.dcard{border-color:var(--accent)}
+.log{list-style:none;margin:6px 0 0;padding:0;max-height:180px;overflow:auto;font-size:12.5px}
+.log li{padding:3px 0;border-bottom:1px dashed #34405c;display:flex;gap:6px}
+.log time{color:var(--mute);font:11px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}
+/* ---- 輸出紀錄 ---- */
+.m{margin:0 0 12px;padding:9px 13px;border-radius:10px;white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:2px solid #000}
+.m .who{display:block;font-size:12px;color:var(--accent);margin-bottom:2px}
+.m.md{white-space:normal}
+.md h3,.md h4,.md h5,.md h6{margin:.6em 0 .2em;font-size:1em}
+.md pre{background:var(--tool);padding:8px;border-radius:6px;overflow:auto;white-space:pre-wrap}
+.md code{background:var(--tool)}
+.md p,.md ul,.md ol{margin:.4em 0}.md ul,.md ol{padding-left:1.4em}
+.md table{border-collapse:collapse;display:block;overflow-x:auto;margin:.5em 0}.md th,.md td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap}.md th{background:var(--tool)}
+.md blockquote{margin:.5em 0;padding-left:10px;border-left:3px solid var(--accent);color:var(--mute)}.md hr{border:0;border-top:1px solid var(--line);margin:.8em 0}
+.md a{color:var(--acc2)}
+.m.md .body{max-height:60vh;overflow:auto;padding-right:4px}
+.dls{margin-top:8px}
+.m.h{background:var(--soft);border-color:var(--accent)}
+.m.e{border-color:var(--warn);color:var(--warn)}
+.m.s{background:none;border:0;color:var(--mute);padding:2px 4px;font-size:13px}
+details.t{margin:0 0 10px;background:var(--tool);border-radius:8px;padding:5px 12px;font-size:12px}
+details.t summary{cursor:pointer;color:var(--mute)}
+details.t pre{margin:6px 0;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto}
+/* ---- 工作區檔案 ---- */
+.files{list-style:none;margin:6px 0;padding:0;max-height:220px;overflow:auto}
+.files li{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px dashed #34405c;font-size:13px}
+.files li span{flex:1;min-width:0;word-break:break-all}
+.files li small{color:var(--mute)}
+/* ---- 佈局編輯 ---- */
+.tools{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tool{flex-direction:column;gap:2px;padding:6px 2px;font-size:11.5px;min-height:52px}
+.tool span{font-size:18px;line-height:1}
+.tool[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.palette{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.pal{flex-direction:column;gap:2px;padding:3px;min-height:0;font-size:11px;color:var(--mute)}
+.pal canvas{image-rendering:pixelated;display:block}
+.pal[aria-pressed=true]{outline:2px solid var(--accent);outline-offset:-1px;color:var(--ink)}
+.stepper{display:flex;align-items:center;gap:8px;margin:6px 0}
+.stepper b{min-width:28px;text-align:center;font-family:ui-monospace,monospace}
+.about{font-size:12.5px;color:var(--mute);margin-top:10px}
+/* ---- 提示 / 對話框 ---- */
+#toast{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#000;color:#fff;border:2px solid var(--accent);padding:8px 14px;border-radius:99px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90vw;text-align:center;font-size:13px}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+dialog{background:var(--panel);color:var(--ink);border:2px solid #000;border-radius:10px;padding:16px;width:min(560px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.6)}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+dialog h3{margin:0 0 8px}
+dialog textarea{height:170px;font:12px ui-monospace,Menlo,Consolas,monospace;color:#cfe3ff}
+.wrap{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+/* ---- 導覽 ---- */
+.help{position:fixed;inset:0;z-index:100}
+.help.dim{background:rgba(0,0,0,.6)}
+.spot{position:fixed;z-index:1;border-radius:10px;pointer-events:none;box-shadow:0 0 0 3px var(--accent),0 0 0 100vmax rgba(0,0,0,.6);transition:left .25s,top .25s,width .25s,height .25s;animation:spotp 1.6s ease-in-out infinite}
+@keyframes spotp{50%{box-shadow:0 0 0 7px var(--accent),0 0 0 100vmax rgba(0,0,0,.6)}}
+.hbox{position:absolute;z-index:2;left:0;top:0;background:var(--panel);color:var(--ink);border:2px solid #000;border-radius:12px;width:min(440px,calc(100vw - 24px));display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.harr{position:absolute;width:12px;height:12px;background:var(--panel);border:0 solid #000;transform:rotate(45deg)}
+.harr.al{left:-7px;border-left-width:2px;border-bottom-width:2px}
+.harr.au{top:-7px;border-top-width:2px;border-left-width:2px}
+.harr.ad{bottom:-7px;border-right-width:2px;border-bottom-width:2px}
+.harr.ar{right:-7px;border-top-width:2px;border-right-width:2px}
+.hhead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 18px 8px}
+.hhead h2{margin:0;font-size:17px}
+.hbody{padding:4px 18px 8px;overflow:auto;flex:1;min-height:0}
+.hbody p,.hbody ul{margin:.5em 0}.hbody ul{padding-left:1.3em}.hbody li{margin:.3em 0}
+.hbody .tip{background:var(--soft);border-left:3px solid var(--accent);border-radius:4px;padding:6px 10px;font-size:13px}
+.hbody .where{display:inline-block;font-size:12px;font-weight:700;color:var(--accent-ink);background:var(--accent);border-radius:999px;padding:0 10px;margin:0 0 4px}
+.hfoot{display:flex;align-items:center;gap:8px;padding:10px 18px 14px;border-top:2px solid #000;flex-wrap:wrap}
+.hdots{display:flex;gap:2px;flex:1;justify-content:center;align-items:center;flex-wrap:wrap}
+.dot{width:16px;height:16px;min-height:0;padding:0;border-radius:50%;border:0;background:none;box-shadow:none;position:relative}
+.dot::before{content:"";position:absolute;inset:3px;border-radius:50%;border:1px solid var(--accent)}
+.dot.on::before{background:var(--accent)}
+.hcount{font-size:12px;color:var(--mute)}
+/* ---- 手機 / 窄螢幕 ---- */
+@media (max-width:860px){
+  body{height:auto;min-height:100dvh;overflow:visible;display:block}
+  .top{position:sticky;top:0}
+  main{display:block}
+  #stage{position:sticky;top:var(--hh);z-index:20;padding:8px;background:#12151d;border-bottom:2px solid #000;box-shadow:0 6px 14px rgba(0,0,0,.4)}
+  #cv{border-width:2px;box-shadow:0 0 0 2px #323b52}
+  .hint{display:none}
+  aside{border-left:0;overflow:visible}
+  .panes{overflow:visible}
+  .tabs{position:sticky;top:calc(var(--hh) + var(--sh))}
+  input,select,textarea{font-size:16px}
+  .acts{grid-template-columns:1fr 1fr}
+  .tools{grid-template-columns:repeat(5,1fr)}
+}
+@media (max-width:420px){.brand b{display:none}.note{width:136px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top" id="top">
+  <div class="brand">
+    <svg viewBox="0 0 13 13" aria-hidden="true" shape-rendering="crispEdges"><rect width="13" height="13" fill="#262d3d"/><rect x="2" y="2" width="9" height="6" fill="#12151d"/><rect x="3" y="3" width="7" height="4" fill="#ff7a59"/><rect x="5" y="8" width="3" height="1" fill="#9aa5c0"/><rect x="3" y="10" width="7" height="1" fill="#ffb84d"/><rect x="4" y="4" width="1" height="1" fill="#12151d"/><rect x="8" y="4" width="1" height="1" fill="#12151d"/></svg>
+    <b>小蝦辦公室</b>
+  </div>
+  <div class="grow"></div>
+  <button id="btnPend" hidden title="有待處理的核准／確認">⚑ 待處理 <b id="pendN"></b></button>
+  <button id="btnSound" aria-pressed="true" title="音效">🔊</button>
+  <button id="btnHelp" title="使用說明" aria-label="使用說明">？</button>
+</header>
+
+<main>
+  <div id="stage">
+    <canvas id="cv" role="img" aria-label="像素辦公室畫面：每個角色是一位 AI 角色，動作反映它正在做的事"></canvas>
+    <div class="hint" id="hint"></div>
+  </div>
+  <aside>
+    <nav class="tabs" role="tablist" aria-label="功能分頁">
+      <button class="tab" role="tab" data-tab="run" aria-selected="true">執行</button>
+      <button class="tab" role="tab" data-tab="team" aria-selected="false">團隊</button>
+      <button class="tab" role="tab" data-tab="set" aria-selected="false">設定</button>
+      <button class="tab" role="tab" data-tab="layout" aria-selected="false">佈局</button>
+    </nav>
+    <div class="panes">
+      <section class="pane" id="p-run">
+        <div class="bar">
+          <textarea id="goal" placeholder="輸入這次流程的總目標，例如：整理 inbox 內的會議記錄，產出本週摘要"></textarea>
+          <div class="acts">
+            <button class="pri" id="run">▶ 執行流程</button><button class="bad" id="stop" hidden>■ 停止</button>
+            <select id="from" title="起始步驟" aria-label="起始步驟"></select>
+            <button id="dl">下載紀錄</button>
+            <select id="hist" title="歷史紀錄" aria-label="歷史紀錄"></select>
+          </div>
+        </div>
+        <div id="pend" hidden></div>
+        <div id="prog" hidden><div class="pbar"><i id="pfill"></i></div><div class="srow"><div id="stat"></div><button class="cp" id="ptog">收合便利貼</button></div><div id="chips"></div></div>
+        <div id="detail" hidden></div>
+        <div id="log" style="margin-top:12px"></div>
+      </section>
+      <section class="pane" id="p-team" hidden><div id="teamBox"></div></section>
+      <section class="pane" id="p-set" hidden><div id="setBox"></div></section>
+      <section class="pane" id="p-layout" hidden>
+        <div class="tools" id="tools"></div>
+        <div id="palFloor" class="palette"></div>
+        <div id="palFurn" class="palette" hidden></div>
+        <div class="lab">辦公室尺寸</div>
+        <div class="stepper"><span>寬</span><button class="sm" data-size="c-" aria-label="寬度減一">−</button><b id="szC"></b><button class="sm" data-size="c+" aria-label="寬度加一">＋</button>
+          <span style="margin-left:10px">高</span><button class="sm" data-size="r-" aria-label="高度減一">−</button><b id="szR"></b><button class="sm" data-size="r+" aria-label="高度加一">＋</button></div>
+        <div class="wrap">
+          <button class="sm" id="btnUndo">↶ 復原</button><button class="sm" id="btnRedo">↷ 重做</button>
+          <button class="sm" id="btnDefault">還原預設佈局</button><button class="sm" id="btnIO">⇅ 匯入/匯出佈局</button>
+        </div>
+        <p class="about">選工具後在畫面上點擊或拖曳繪製。電腦版：右鍵＝橡皮擦、<code>R</code>＝旋轉、<code>Ctrl+Z</code>／<code>Ctrl+Y</code>＝復原／重做。<b>每個角色需要一張工作桌</b>，桌子不夠時多出的角色會站著工作。</p>
+        <p class="about" id="deskInfo"></p>
+      </section>
+    </div>
+  </aside>
+</main>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="dlgIO">
+  <h3>匯入／匯出辦公室佈局</h3>
+  <p class="mut">下方是目前辦公室佈局的 JSON。可複製、下載，或貼上其他 JSON 後按「套用」。</p>
+  <textarea id="ioText" spellcheck="false" aria-label="佈局 JSON"></textarea>
+  <div class="wrap">
+    <button id="ioCopy">複製</button><button id="ioDown">下載檔案</button>
+    <button id="ioPick">選擇檔案</button><input type="file" id="ioFile" accept=".json,application/json" hidden>
+    <button class="pri" id="ioApply">套用</button><button id="ioClose">關閉</button>
+  </div>
+</dialog>
+
+<div id="help" class="help" hidden>
+  <div id="spot" class="spot" hidden></div>
+  <div class="hbox" role="dialog" aria-modal="true" aria-labelledby="hTitle">
+    <i class="harr" id="hArr" hidden></i>
+    <div class="hhead"><h2 id="hTitle"></h2><span class="hcount" id="hCount"></span></div>
+    <div class="hbody" id="hBody"></div>
+    <div class="hfoot">
+      <button id="hSkip" type="button">結束導覽</button>
+      <div class="hdots" id="hDots"></div>
+      <button id="hPrev" type="button">上一步</button>
+      <button id="hNext" type="button" class="pri">下一步</button>
+    </div>
+  </div>
+</div>
+<noscript>本工具需要啟用 JavaScript。</noscript>
+
+<script>
+(()=>{
+'use strict';
+const TS=16;
+const $=(s,p=document)=>p.querySelector(s),$$=(s,p=document)=>Array.from(p.querySelectorAll(s));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rnd=(a,b)=>a+Math.random()*(b-a),ri=(a,b)=>Math.floor(rnd(a,b+1)),pick=a=>a[Math.floor(Math.random()*a.length)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hash=(a,b,c=0)=>{let x=(Math.imul(a,374761393)+Math.imul(b,668265263)+Math.imul(c,2147483647))|0;x=Math.imul(x^(x>>>13),1274126177);return((x^(x>>>16))>>>0)/4294967296};
+const shade=(hex,k)=>{const n=parseInt(hex.slice(1),16);let r=n>>16,g=(n>>8)&255,b=n&255;const f=k<0?0:255,p=Math.abs(k);r=Math.round((f-r)*p+r);g=Math.round((f-g)*p+g);b=Math.round((f-b)*p+b);return'#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1)};
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pad=n=>String(n).padStart(2,'0');
+const hms=ts=>{const d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())};
+const FLOORS=[
+ {id:2,a:'#b98a5a',b:'#ab7e50',l:'#8f6840',k:'plank'},
+ {id:3,a:'#7a5638',b:'#6c4b31',l:'#58392a',k:'plank'},
+ {id:4,a:'#d9dde6',b:'#c9cedb',l:'#aeb5c6',k:'check'},
+ {id:5,a:'#59627a',b:'#4f576d',l:'#434a5f',k:'check'},
+ {id:6,a:'#2f7f86',b:'#2a7279',l:'#245f66',k:'carpet'},
+ {id:7,a:'#6b4f9a',b:'#604690',l:'#4f3978',k:'carpet'},
+ {id:8,a:'#9a3f4a',b:'#8d3843',l:'#732d37',k:'carpet'}];
+const FURN={
+ desk:{w:1,h:1,block:true,rot:true},sofa:{w:2,h:1,sortOff:-8},plant:{w:1,h:1,block:true},shelf:{w:1,h:1,block:true},
+ coffee:{w:1,h:1,block:true},printer:{w:1,h:1,block:true},rug:{w:1,h:1,under:true},
+ window:{w:1,h:1,wall:true},board:{w:1,h:1,wall:true},clock:{w:1,h:1,wall:true},poster:{w:1,h:1,wall:true}};
+const FURN_ORDER=['desk','sofa','plant','shelf','coffee','printer','rug','window','board','clock','poster'];
+const SEATOFF=[[0,1],[-1,0],[0,-1],[1,0]],FACE=[2,3,0,1]; // dir: 0下 1左 2上 3右
+const N4=[[1,0],[-1,0],[0,1],[0,-1]];
+const SKINS=['#f6d3b3','#e8b98d','#c68b5c','#8d5a3b','#f3c9a0'],HAIRS=['#2b1d14','#5a3a22','#c9772e','#e8d27a','#1d1d28','#7a2f3a','#4a5568'],
+ SHIRTS=['#4d7cff','#e86a6a','#4dbf8b','#b07cff','#ffb84d','#4dc9e8','#f08ad0','#8fd14f'],PANTS=['#2f3b57','#3b3b3b','#5a4632','#274a45'];
+/* ====================== 音效 ====================== */
+let AC=null,gesture=false;
+['pointerdown','keydown','touchstart'].forEach(ev=>addEventListener(ev,()=>{gesture=true},{capture:true,passive:true}));
+function tone(f,d,type='sine',v=.06,at=0,slide){
+ if(!O.set.sound||!gesture)return;
+ try{
+  AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();
+  const o=AC.createOscillator(),g=AC.createGain(),t0=AC.currentTime+at;
+  o.type=type;o.frequency.setValueAtTime(f,t0);if(slide)o.frequency.exponentialRampToValueAtTime(slide,t0+d);
+  g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(v,t0+.015);g.gain.exponentialRampToValueAtTime(.0001,t0+d);
+  o.connect(g).connect(AC.destination);o.start(t0);o.stop(t0+d+.03);
+ }catch(e){}
+}
+const snd={done(){tone(784,.14,'sine',.07);tone(1175,.22,'sine',.07,.12)},perm(){tone(392,.12,'triangle',.09);tone(523,.12,'triangle',.09,.13);tone(392,.16,'triangle',.09,.26)},
+ ask(){tone(660,.12,'sine',.06);tone(880,.12,'sine',.06,.1)},meow(){tone(820,.22,'sawtooth',.03,0,420)},pop(){tone(500,.08,'square',.03,0,900)},click(){tone(600,.04,'square',.02)}};
+
+/* ====================== 版面資料 ====================== */
+function defaultLayout(){
+ const cols=18,rows=12,tiles=[];
+ for(let r=0;r<rows;r++){tiles.push([]);for(let c=0;c<cols;c++){let v=2;if(r<=1||r===rows-1||c===0||c===cols-1)v=1;else if(c>=12)v=6;tiles[r].push(v)}}
+ const furn=[];const add=(tp,c,r,rot=0)=>furn.push({t:tp,c,r,rot});
+ [2,4,6,8,10].forEach(c=>{add('desk',c,3);add('desk',c,7)});
+ add('shelf',1,2);add('shelf',11,2);add('plant',1,10);add('plant',11,10);add('plant',16,3);add('plant',16,10);
+ add('coffee',13,2);add('printer',14,2);add('sofa',13,5);add('sofa',15,5);
+ for(let r=6;r<=8;r++)for(let c=13;c<=16;c++)add('rug',c,r);
+ add('window',3,1);add('window',6,1);add('window',9,1);add('board',12,1);add('clock',14,1);add('poster',16,1);
+ return{cols,rows,tiles,furn};
+}
+const inb=(c,r)=>r>=0&&c>=0&&r<O.layout.rows&&c<O.layout.cols;
+function sanitizeLayout(o){
+ if(!o||typeof o!=='object'||!Array.isArray(o.tiles))return null;
+ const rows=clamp(o.tiles.length|0,6,24),cols=clamp((o.tiles[0]||[]).length|0,8,32);
+ if(!cols)return null;
+ const tiles=[];for(let r=0;r<rows;r++){tiles.push([]);for(let c=0;c<cols;c++){const v=(o.tiles[r]||[])[c];tiles[r].push(Number.isInteger(v)&&v>=0&&v<=8?v:0)}}
+ const furn=[];
+ (Array.isArray(o.furn)?o.furn:[]).forEach(f=>{
+  if(!f||!FURN[f.t]||!Number.isInteger(f.c)||!Number.isInteger(f.r))return;
+  const d=FURN[f.t];if(f.c<0||f.r<0||f.c+d.w>cols||f.r+d.h>rows)return;
+  furn.push({t:f.t,c:f.c,r:f.r,rot:d.rot?((f.rot|0)&3):0});
+ });
+ return{cols,rows,tiles,furn};
+}
+const covers=(f,c,r)=>c>=f.c&&c<f.c+FURN[f.t].w&&r>=f.r&&r<f.r+FURN[f.t].h;
+const layerOf=f=>FURN[f.t].wall?'wall':FURN[f.t].under?'under':'floor';
+
+/* ====================== 繪圖:像素素材 ====================== */
+const BM={
+ q:['.###.','#...#','....#','...#.','..#..','.....','..#..'],
+ ex:['..#..','..#..','..#..','..#..','..#..','.....','..#..'],
+ ok:['......#','.....#.','#...#..','.#.#...','..#....'],
+ heart:['.##.##.','#######','#######','.#####.','..###..','...#...'],
+ pencil:['.....#.','....###','...###.','..###..','.###...','.##....','#......'],
+ lens:['.###...','#...#..','#...#..','#...#..','.###...','.....#.','......#'],
+ term:['########','#......#','#.#....#','#..#.###','#.#....#','########'],
+ spark:['...#...','..###..','#######','..###..','...#...'],
+ z:['###','..#','.#.','#..','###']
+};
+function drawBM(g,rows,x,y,c){g.fillStyle=c;for(let j=0;j<rows.length;j++)for(let i=0;i<rows[j].length;i++)if(rows[j][i]==='#')g.fillRect(x+i,y+j,1,1)}
+
+function floorTile(g,f,x,y,c,r){
+ const F=FLOORS.find(q=>q.id===f)||FLOORS[0];g.fillStyle=F.a;g.fillRect(x,y,TS,TS);
+ if(F.k==='plank'){
+  for(let i=0;i<4;i++){const yy=y+i*4;if((i+r)%2){g.fillStyle=F.b;g.fillRect(x,yy,TS,4)}g.fillStyle=F.l;g.fillRect(x,yy+3,TS,1);const jx=Math.floor(hash(c,r,i)*14)+1;g.fillRect(x+jx,yy,1,3)}
+ }else if(F.k==='check'){
+  g.fillStyle=F.b;g.fillRect(x,y,8,8);g.fillRect(x+8,y+8,8,8);g.fillStyle=F.l;g.fillRect(x,y,TS,1);g.fillRect(x,y,1,TS);
+ }else{
+  g.fillStyle=F.b;for(let k=0;k<14;k++){g.fillRect(x+Math.floor(hash(c,r,k)*16),y+Math.floor(hash(c,r,k+40)*16),1,1)}
+  g.fillStyle=F.l;for(let k=0;k<5;k++){g.fillRect(x+Math.floor(hash(c,r,k+90)*16),y+Math.floor(hash(c,r,k+70)*16),1,1)}
+ }
+}
+function skyPhase(){const h=new Date().getHours();return h>=6&&h<17?'day':h>=17&&h<20?'dusk':'night'}
+
+function drawFurn(g,f,x,y,o={}){
+ const R=(a,b,w,h,c)=>{g.fillStyle=c;g.fillRect(x+a,y+b,w,h)};
+ const tm=o.t||0;
+ switch(f.t){
+ case 'desk':{
+  const rot=f.rot&3,sc=o.scr|0,base=['#1c2433','#16324a','#1b3a52','#27344f','#4a1f26'][sc];
+  R(1,3,14,10,'#b07f50');R(1,3,14,1,'#cf9a67');R(1,12,14,3,'#8a5d38');R(1,15,1,1,'#5c3d24');R(14,15,1,1,'#5c3d24');
+  const scr=(sx,sy,sw,sh)=>{R(sx,sy,sw,sh,base);
+   if(sc===1||sc===2){const lc=sc===1?'#7dffb0':'#cfe3ff';for(let i=0;i<Math.floor(sh/2);i++){const wv=2+((Math.floor(tm*(sc===1?7:2))+i*3)%(sw-1));R(sx,sy+i*2,Math.min(sw,wv),1,lc)}}
+   else if(sc===3){if(Math.floor(tm*2)%2)R(sx+1,sy+sh-2,2,1,'#ffd45c')}
+   else if(sc===4){const m=sx+Math.floor(sw/2)-1;R(m,sy,1,sh-2,'#ff8a8a');R(m,sy+sh-1,1,1,'#ff8a8a')}};
+  if(rot===0){R(4,0,8,8,'#222836');scr(5,1,6,5);R(7,8,2,1,'#222836');R(4,9,8,2,'#d5d8e0');R(13,9,1,2,'#d5d8e0');R(12,5,2,2,'#f4f4f4');R(12,5,2,1,'#6b3b1f')}
+  else if(rot===2){R(4,3,8,2,'#d5d8e0');R(4,5,8,6,'#2a3042');R(7,7,2,2,'#4a5270');R(12,11,2,1,'#6b3b1f')}
+  else if(rot===1){R(2,5,3,6,'#d5d8e0');R(6,3,3,9,'#222836');R(6,4,1,7,base);R(11,5,2,2,'#f4f4f4')}
+  else{R(11,5,3,6,'#d5d8e0');R(7,3,3,9,'#222836');R(9,4,1,7,base);R(3,5,2,2,'#f4f4f4')}
+  break}
+ case 'sofa':
+  R(1,2,30,6,'#74303f');R(2,3,28,4,'#8a3b4d');R(3,7,26,6,'#b24b62');R(3,7,26,1,'#c9647b');R(16,8,1,5,'#8a3b4d');
+  R(0,4,3,10,'#8f3a4e');R(29,4,3,10,'#8f3a4e');R(1,14,2,2,'#4a2a22');R(29,14,2,2,'#4a2a22');break;
+ case 'plant':
+  R(5,10,6,5,'#b5653a');R(4,9,8,2,'#c97a4e');R(3,3,10,7,'#3f9b52');R(5,1,6,4,'#56b868');R(2,5,3,3,'#2f7d43');R(11,5,3,3,'#2f7d43');R(6,3,2,2,'#7fd68c');R(10,6,1,1,'#7fd68c');break;
+ case 'shelf':{
+  R(1,-5,14,20,'#6b4a30');R(2,-4,12,18,'#4e3522');
+  const cols=['#e86a6a','#4d7cff','#ffb84d','#4dbf8b','#b07cff','#f4f4f4'];
+  for(let row=0;row<3;row++){const by=-3+row*6;let bx=2;R(2,by+5,12,1,'#6b4a30');while(bx<13){const w=1+Math.floor(hash(f.c,row,bx)*2),h=3+Math.floor(hash(f.c,row,bx+9)*2);R(bx,by+5-h,w,h,cols[Math.floor(hash(f.c+row,bx,3)*cols.length)]);bx+=w+(hash(bx,row,5)>.8?1:0)}}
+  break}
+ case 'coffee':
+  R(3,3,10,12,'#3a3f4d');R(3,3,10,2,'#59607a');R(5,6,6,3,'#1d222c');R(10,7,1,1,Math.floor(tm*1.3)%2?'#ff6b6b':'#7a2a2a');R(6,11,4,3,'#10131a');R(7,12,2,2,'#fff');R(3,15,10,1,'#262a34');break;
+ case 'printer':
+  R(4,3,8,4,'#fff');R(2,6,12,2,'#e6e9f0');R(2,8,12,6,'#cfd4de');R(4,11,8,1,'#8d94a6');R(11,9,2,1,Math.floor(tm*2)%2?'#6bdc7f':'#2f6b3f');R(2,14,12,1,'#9aa1b3');break;
+ case 'rug':
+  R(0,0,16,16,'#9c3f4e');R(1,1,14,14,'#a94859');R(3,3,10,10,'#b8576a');R(6,6,4,4,'#e8b4bc');R(7,7,2,2,'#9c3f4e');break;
+ case 'window':{
+  const ph=o.phase||'day',sky=ph==='day'?['#8fd3ff','#c9edff']:ph==='dusk'?['#ff9b5e','#ffd58a']:['#0e1830','#1a2a52'];
+  R(2,2,12,11,'#dfe4ef');R(3,3,10,9,sky[0]);R(3,7,10,5,sky[1]);R(7,3,2,9,'#dfe4ef');R(3,7,10,1,'#dfe4ef');R(1,12,14,2,'#b5bccd');
+  if(ph==='night'){R(4,4,1,1,'#fff');R(11,5,1,1,'#fff');R(5,9,1,1,'#cfe3ff');R(10,10,1,1,'#fff')}
+  else if(ph==='day'){R(4,4,3,1,'#fff');R(5,5,3,1,'#fff')}
+  break}
+ case 'board':
+  R(1,2,14,11,'#8f98ae');R(2,3,12,9,'#f4f6fb');R(3,4,7,1,'#4d7cff');R(3,6,9,1,'#ff6b6b');R(3,8,5,1,'#2fae6c');R(9,8,3,2,'#ffb84d');R(3,13,10,1,'#6a7388');break;
+ case 'clock':{
+  R(5,2,6,10,'#2b3246');R(3,4,10,6,'#2b3246');R(4,3,8,8,'#2b3246');R(5,4,6,6,'#f4f6fb');R(4,5,8,4,'#f4f6fb');
+  const d=new Date(),mn=d.getMinutes(),hr=(d.getHours()%12)+mn/60,cx=8,cy=7;
+  const line=(ang,len,c)=>{for(let i=1;i<=len;i++)R(cx+Math.round(Math.sin(ang)*i),cy+Math.round(-Math.cos(ang)*i),1,1,c)};
+  line(hr/12*Math.PI*2,2,'#10131a');line(mn/60*Math.PI*2,3,'#d44');R(cx,cy,1,1,'#10131a');break}
+ case 'poster':
+  R(3,2,10,11,'#f4d35e');R(4,3,8,6,'#ee6c4d');R(5,4,6,4,'#3d5a80');R(7,5,2,2,'#f4d35e');R(4,10,8,1,'#2b2d42');R(4,11,5,1,'#2b2d42');break;
+ }
+}
+function drawChair(g,x,y,dir){
+ const R=(a,b,w,h,c)=>{g.fillStyle=c;g.fillRect(x+a,y+b,w,h)};
+ R(4,6,8,7,'#46587f');
+ if(dir===2)R(4,11,8,3,'#2d3955');else if(dir===0)R(4,3,8,3,'#2d3955');else if(dir===3)R(3,5,3,9,'#2d3955');else R(10,5,3,9,'#2d3955');
+}
+
+/* ====================== 角色繪製 ====================== */
+function makePal(){
+ const p={skin:pick(SKINS),hair:pick(HAIRS),style:ri(0,3),shirt:pick(SHIRTS),pants:pick(PANTS)};return finPal(p);
+}
+function finPal(p){p.shirtD=shade(p.shirt,-.22);p.hairL=shade(p.hair,.2);return p}
+function drawChar(g,a,px,py,alpha=1){
+ const p=a.pal,d=a.dir,sit=a.mode==='sit',walk=a.mode==='walk';
+ const fr=walk?Math.floor(a.anim*9)%4:0;
+ const handsFwd=sit&&a.status!=='idle'&&!a.sub;
+ const typing=a.status==='working',reading=a.status==='reading';
+ const tp=Math.floor(a.anim*10)%2;
+ const ox=Math.round(px),oy=Math.round(py)+(sit?3:0)+(walk&&fr%2?-1:0);
+ g.save();if(alpha<1)g.globalAlpha=alpha;
+ g.fillStyle='rgba(0,0,0,.22)';g.fillRect(Math.round(px)-4,Math.round(py)-1,8,2);
+ const flip=d===1,side=d===1||d===3;
+ const R=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(flip?ox-x-w:ox+x,oy+y,w,h)};
+ const shoe='#1c1c24',dark='#1b1b24';
+ const sw=walk?[0,2,0,-2][fr]:0;
+ if(!side){
+  if(!sit){const l1=walk&&fr===1?-1:0,l2=walk&&fr===3?-1:0;R(-3,-5+l1,2,3,p.pants);R(-3,-2+l1,2,2,shoe);R(1,-5+l2,2,3,p.pants);R(1,-2+l2,2,2,shoe)}
+  R(-3,-11,6,6,p.shirt);R(-3,-6,6,1,p.shirtD);
+  const la=walk?(fr===1?-1:fr===3?1:0):0;
+  if(d===0){
+   if(handsFwd){R(-5,-10,2,5,p.shirt);R(3,-10,2,5,p.shirt);
+    if(reading){R(-3,-8,6,3,'#fff');R(0,-8,1,3,'#9ab');R(-3,-8,6,1,'#dfe6f2')}
+    else{R(-4,-6+(typing&&tp?1:0),2,2,p.skin);R(2,-6+(typing&&!tp?1:0),2,2,p.skin)}}
+   else{R(-5,-10+la,2,5,p.shirt);R(3,-10-la,2,5,p.shirt);R(-5,-5+la,2,2,p.skin);R(3,-5-la,2,2,p.skin)}
+   if(a.sub&&!walk){R(-4,-9,8,5,'#cfd4de');R(-3,-8,6,3,['#3a6a8a','#4fa0c8'][tp])}
+  }else{
+   if(handsFwd){R(-5,-10,2,4,p.shirt);R(3,-10,2,4,p.shirt);R(-5,-12+(typing&&tp?1:0),2,2,p.skin);R(3,-12+(typing&&!tp?1:0),2,2,p.skin)}
+   else{R(-5,-10+la,2,5,p.shirt);R(3,-10-la,2,5,p.shirt);R(-5,-5+la,2,2,p.skin);R(3,-5-la,2,2,p.skin)}
+  }
+  // head
+  if(d===0){R(-4,-19,8,8,p.skin);R(-4,-19,8,3,p.hair);R(-4,-16,1,2,p.hair);R(3,-16,1,2,p.hair);
+   if(p.style===1){R(-4,-16,1,7,p.hair);R(3,-16,1,7,p.hair)}
+   R(-2,-15,1,2,dark);R(1,-15,1,2,dark);if(a.mouth)R(-1,-12,2,1,'#a33')}
+  else{R(-4,-19,8,8,p.hair);R(-2,-12,4,1,p.skin);R(-4,-14,8,1,p.hairL);if(p.style===1)R(-4,-12,8,3,p.hair)}
+  if(p.style===2){R(-3,-20,1,1,p.hair);R(-1,-21,1,2,p.hair);R(1,-20,1,1,p.hair);R(3,-21,1,1,p.hair)}
+  if(p.style===3)R(-1,-22,3,3,p.hair);
+ }else{
+  if(!sit){R(-1+sw,-5,2,3,shade(p.pants,-.15));R(-1+sw,-2,3,2,shoe);R(-1-sw,-5,2,3,p.pants);R(-1-sw,-2,3,2,shoe)}
+  else{R(-1,-4,6,2,p.pants);R(4,-2,2,3,p.pants);R(4,1,3,1,shoe)}
+  R(-2,-11,4,6,p.shirt);R(-2,-6,4,1,p.shirtD);
+  if(handsFwd){R(0,-9,5,2,p.shirtD);R(5,-9+(typing&&tp?1:0),2,2,p.skin)}
+  else{const ax=walk?[0,1,0,-1][fr]*2:0;R(-1+ax,-10,2,5,p.shirtD);R(-1+ax,-5,2,2,p.skin)}
+  if(a.sub&&!walk){R(3,-9,3,5,'#cfd4de');R(4,-8,1,3,['#3a6a8a','#4fa0c8'][tp])}
+  R(-4,-19,8,8,p.skin);R(2,-15,1,2,dark);R(4,-14,1,1,p.skin);R(-4,-19,8,3,p.hair);R(-4,-16,3,5,p.hair);
+  if(p.style===1)R(-4,-16,3,9,p.hair);
+  if(p.style===2){R(-3,-20,1,1,p.hair);R(-1,-21,1,2,p.hair);R(1,-20,1,1,p.hair)}
+  if(p.style===3)R(-5,-21,3,3,p.hair);
+ }
+ if(a.activity==='coffee'&&a.mode==='stand'){
+  const sx=side?4:3;R(sx,-9,3,3,'#fff');R(sx,-9,3,1,'#6b3b1f');
+  if(Math.floor(a.anim*2)%2){R(sx+1,-11,1,1,'rgba(255,255,255,.75)')}else R(sx,-12,1,1,'rgba(255,255,255,.6)');
+ }
+ g.restore();
+}
+function drawBubble(g,x,y,kind,tm){
+ const bob=reduce?0:Math.round(Math.sin(tm*6));
+ const w=11,h=11,bx=Math.round(x)-5,by=Math.round(y)-h-3+bob;
+ g.fillStyle='#000';g.fillRect(bx-1,by,w+2,h);g.fillRect(bx,by-1,w,h+2);g.fillRect(bx+4,by+h+1,3,2);g.fillRect(bx+5,by+h+2,1,1);
+ g.fillStyle='#fff';g.fillRect(bx,by,w,h);g.fillRect(bx+5,by+h,1,2);g.fillRect(bx+4,by+h,3,1);
+ if(kind==='ex')drawBM(g,BM.ex,bx+3,by+2,'#e04646');
+ else if(kind==='q')drawBM(g,BM.q,bx+3,by+2,'#3b7cff');
+ else if(kind==='ok')drawBM(g,BM.ok,bx+2,by+3,'#2fae6c');
+ else if(kind==='heart')drawBM(g,BM.heart,bx+2,by+3,'#f0568a');
+ else if(kind==='zzz')drawBM(g,BM.z,bx+4,by+3,'#6a7388');
+ else{const n=Math.floor(tm*3)%3;g.fillStyle='#6a7388';for(let i=0;i<3;i++){g.fillRect(bx+2+i*3,by+5+(i===n?-1:0),2,2)}}
+}
+function drawCat(g,e,px,py){
+ const s=e.dir===1?-1:1,ox=Math.round(px),oy=Math.round(py);
+ const R=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(s>0?ox+x:ox-x-w,oy+y,w,h)};
+ const c1='#e8a24a',c2='#c9822c',fr=Math.floor(e.anim*8)%2;
+ g.fillStyle='rgba(0,0,0,.2)';g.fillRect(ox-5,oy-1,10,2);
+ if(e.mode==='sleep'){R(-4,-4,9,4,c1);R(-4,-4,9,1,c2);R(2,-6,3,3,c1);R(2,-7,1,1,c2);R(4,-7,1,1,c2);R(-5,-2,3,2,c2);R(3,-4,1,1,'#222');return}
+ if(e.mode==='sit'){R(-3,-6,6,6,c1);R(-3,-6,6,1,c2);R(1,-10,4,4,c1);R(1,-11,1,2,c2);R(4,-11,1,2,c2);R(4,-8,1,1,'#222');R(-5,-2,3,2,c2);R(-1,-1,1,1,c2);return}
+ R(-4,-5,8,4,c1);R(-4,-5,8,1,c2);R(-1,-5,1,4,c2);R(3,-8,4,4,c1);R(3,-9,1,2,c2);R(6,-9,1,2,c2);R(6,-6,1,1,'#222');
+ R(-6,-7+fr,2,1,c2);R(-5,-6+fr,1,3,c2);
+ const lf=e.mode==='walk'?fr:0;R(-3,-1,1,1+lf,c2);R(2,-1,1,2-lf,c2);R(-1,-1,1,2-lf,c1);R(0,-1,1,1+lf,c1);
+}
+
+/* ====================== 版面重建 / 靜態層 ====================== */
+function skyKey(){const d=new Date();return skyPhase()+d.getHours()+':'+d.getMinutes()}
+function buildStatic(){
+ const L=O.layout,W=L.cols*TS,H=L.rows*TS;
+ const cv=O.staticCv||(O.staticCv=document.createElement('canvas'));cv.width=W;cv.height=H;
+ const g=cv.getContext('2d');g.imageSmoothingEnabled=false;
+ for(let r=0;r<L.rows;r++)for(let c=0;c<L.cols;c++){
+  const v=L.tiles[r][c],x=c*TS,y=r*TS;
+  if(v===0){g.fillStyle='#10131a';g.fillRect(x,y,TS,TS);g.fillStyle='#161a24';g.fillRect(x,y,8,8);g.fillRect(x+8,y+8,8,8)}
+  else if(v===1){
+   const below=r+1<L.rows?L.tiles[r+1][c]:0;
+   if(below>=2){g.fillStyle='#5d6987';g.fillRect(x,y,TS,TS);g.fillStyle='#7683a5';g.fillRect(x,y,TS,2);g.fillStyle='#4e5973';for(let i=0;i<TS;i+=8)g.fillRect(x+i,y+2,1,TS-5);g.fillStyle='#3f485f';g.fillRect(x,y+13,TS,3);g.fillStyle='#566380';g.fillRect(x,y+13,TS,1)}
+   else{g.fillStyle='#303952';g.fillRect(x,y,TS,TS);g.fillStyle='#3a4560';g.fillRect(x+1,y+1,TS-2,TS-2);g.fillStyle='#2a3248';g.fillRect(x,y+TS-1,TS,1)}
+  }else floorTile(g,v,x,y,c,r);
+ }
+ for(let r=1;r<L.rows;r++)for(let c=0;c<L.cols;c++)if(L.tiles[r][c]>=2&&L.tiles[r-1][c]===1){g.fillStyle='rgba(0,0,0,.2)';g.fillRect(c*TS,r*TS,TS,3);g.fillStyle='rgba(0,0,0,.1)';g.fillRect(c*TS,r*TS+3,TS,2)}
+ const o={phase:skyPhase(),t:0};
+ L.furn.filter(f=>FURN[f.t].under).forEach(f=>drawFurn(g,f,f.c*TS,f.r*TS,o));
+ L.furn.filter(f=>FURN[f.t].wall).forEach(f=>drawFurn(g,f,f.c*TS,f.r*TS,o));
+ O.staticKey=skyKey();
+}
+function rebuild(){
+ const L=O.layout;
+ O.walk=L.tiles.map(row=>row.map(v=>v>=2));
+ L.furn.forEach(f=>{const d=FURN[f.t];if(d.block)for(let j=0;j<d.h;j++)for(let i=0;i<d.w;i++)if(inb(f.c+i,f.r+j))O.walk[f.r+j][f.c+i]=false});
+ O.seats=[];O.coffeeSpots=[];
+ L.furn.forEach(f=>{
+  if(f.t==='desk'){const[dx,dy]=SEATOFF[f.rot&3],c=f.c+dx,r=f.r+dy;if(inb(c,r)&&O.walk[r][c])O.seats.push({key:'d'+f.c+','+f.r,kind:'desk',c,r,dir:FACE[f.rot&3],desk:f,owner:null,occ:null})}
+  else if(f.t==='sofa'){for(let i=0;i<2;i++){const c=f.c+i;if(inb(c,f.r)&&O.walk[f.r][c])O.seats.push({key:'s'+c+','+f.r,kind:'lounge',c,r:f.r,dir:0,occ:null})}}
+  else if(f.t==='coffee'){N4.forEach(([dx,dy])=>{const c=f.c+dx,r=f.r+dy;if(inb(c,r)&&O.walk[r][c]){const vx=-dx,vy=-dy;O.coffeeSpots.push({c,r,face:vy>0?0:vy<0?2:vx<0?1:3})}})}
+ });
+ buildStatic();
+ // 重新分配座位
+ const agents=O.agents.filter(a=>!a.sub);
+ agents.forEach(a=>{a.loungeSeat=null;if(a.seat&&a.activity==='lounge')a.activity=null});
+ const deskSeats=O.seats.filter(s=>s.kind==='desk');
+ const prevKeys=agents.map(a=>a.seatKey);
+ agents.forEach(a=>{a.seat=null});
+ agents.forEach((a,i)=>{const s=deskSeats.find(q=>q.key===prevKeys[i]&&!q.owner);if(s){s.owner=a;a.seat=s}});
+ agents.forEach(a=>{if(!a.seat){const s=deskSeats.find(q=>!q.owner);if(s){s.owner=a;a.seat=s}}a.seatKey=a.seat?a.seat.key:null;a.goalDirty=true});
+ // 校正位置
+ [...O.agents,...O.pets].forEach(e=>{
+  const c=Math.floor(e.x),r=Math.floor(e.y);
+  if(!inb(c,r)||!O.walk[r][c]){const q=nearestWalk(c,r);if(q){e.x=q[0]+.5;e.y=q[1]+.5}e.path=[];e.mode='stand';e.goal=null}
+ });
+}
+function nearestWalk(c,r){
+ let best=null,bd=1e9;
+ for(let y=0;y<O.layout.rows;y++)for(let x=0;x<O.layout.cols;x++)if(O.walk[y][x]){const d=(x-c)**2+(y-r)**2;if(d<bd){bd=d;best=[x,y]}}
+ return best;
+}
+
+/* ====================== 尋路與移動 ====================== */
+function findPath(sc,sr,tc,tr){
+ const{cols,rows}=O.layout;if(!inb(tc,tr)||!O.walk[tr][tc])return null;
+ if(sc===tc&&sr===tr)return[];
+ const prev=new Int32Array(cols*rows).fill(-1),q=[sr*cols+sc];prev[sr*cols+sc]=sr*cols+sc;
+ for(let i=0;i<q.length;i++){
+  const cur=q[i],cc=cur%cols,cr=(cur/cols)|0;
+  for(const[dx,dy]of N4){
+   const nc=cc+dx,nr=cr+dy;if(nc<0||nr<0||nc>=cols||nr>=rows)continue;
+   const ni=nr*cols+nc;if(prev[ni]>=0||!O.walk[nr][nc])continue;prev[ni]=cur;
+   if(nc===tc&&nr===tr){const path=[];let k=ni;while(k!==sr*cols+sc){path.push([k%cols,(k/cols)|0]);k=prev[k]}return path.reverse()}
+   q.push(ni);
+  }
+ }
+ return null;
+}
+function reach(sc,sr,maxD=99){
+ const{cols,rows}=O.layout,dist=new Int16Array(cols*rows).fill(-1),q=[sr*cols+sc],out=[];dist[sr*cols+sc]=0;
+ for(let i=0;i<q.length;i++){const cur=q[i],cc=cur%cols,cr=(cur/cols)|0;if(dist[cur]>0)out.push([cc,cr]);if(dist[cur]>=maxD)continue;
+  for(const[dx,dy]of N4){const nc=cc+dx,nr=cr+dy;if(nc<0||nr<0||nc>=cols||nr>=rows)continue;const ni=nr*cols+nc;if(dist[ni]>=0||!O.walk[nr][nc])continue;dist[ni]=dist[cur]+1;q.push(ni)}}
+ return out;
+}
+function stepEntity(e,dt){
+ if(!e.path.length)return;
+ const[tc,tr]=e.path[0],tx=tc+.5,ty=tr+.5,dx=tx-e.x,dy=ty-e.y,d=Math.hypot(dx,dy),st=e.speed*dt;
+ e.mode='walk';
+ if(d<=st){e.x=tx;e.y=ty;e.path.shift();if(!e.path.length)arrive(e)}
+ else{e.x+=dx/d*st;e.y+=dy/d*st;e.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?3:1):(dy>0?0:2)}
+}
+function arrive(e){
+ const g=e.goal;e.path=[];
+ if(g&&g.type==='seat'){e.mode='sit';e.dir=g.seat.dir;e.x=g.seat.c+.5;e.y=g.seat.r+.5}
+ else{e.mode=e.sleepy?'sit':'stand';if(g&&g.face!=null)e.dir=g.face;e.activity=g&&g.activity||null}
+ e.dwell=(g&&g.dwell)||rnd(2,5);
+}
+function goTo(e,c,r,o={}){
+ const path=findPath(Math.floor(e.x),Math.floor(e.y),c,r);
+ if(!path){e.dwell=rnd(1,3);return false}
+ e.goal=Object.assign({type:'tile'},o);e.path=path;e.activity=null;
+ if(!path.length)arrive(e);else e.mode='walk';return true;
+}
+function goSeat(e,seat,dwell){
+ const path=findPath(Math.floor(e.x),Math.floor(e.y),seat.c,seat.r);
+ e.goal={type:'seat',seat,dwell};e.activity=null;
+ if(!path){e.x=seat.c+.5;e.y=seat.r+.5;e.path=[];arrive(e);return}
+ e.path=path;if(!path.length)arrive(e);else e.mode='walk';
+}
+
+/* ====================== 寵物 ====================== */
+function addPet(){
+ const ls=O.seats.filter(s=>s.kind==='lounge');let c,r;
+ if(ls.length){const s=pick(ls);c=s.c;r=s.r}else{const w=nearestWalk(Math.floor(O.layout.cols*.7),Math.floor(O.layout.rows*.7));if(!w)return;c=w[0];r=w[1]}
+ O.pets=[{kind:'cat',x:c+.5,y:r+.5,dir:1,mode:'stand',path:[],goal:null,speed:1.5,dwell:rnd(1,3),anim:0,sleepy:false}];
+}
+function updatePet(e,dt){
+ e.anim+=dt;stepEntity(e,dt);
+ if(e.emote){e.emote.t-=dt;if(e.emote.t<=0)e.emote=null}
+ if(e.path.length)return;
+ e.dwell-=dt;if(e.dwell>0)return;
+ const k=Math.random();
+ if(e.mode==='sleep'&&k<.5){e.mode='stand';e.dwell=rnd(1,3);return}
+ if(k<.55){const tl=reach(Math.floor(e.x),Math.floor(e.y),9);if(tl.length){const[c,r]=pick(tl);goTo(e,c,r,{dwell:rnd(1,4)})}else e.dwell=3}
+ else if(k<.8){e.mode='sit';e.dwell=rnd(3,6)}
+ else{e.mode='sleep';e.dwell=rnd(8,16)}
+}
+
+/* ====================== 辦公室:執行期狀態 ====================== */
+const O={layout:null,agents:[],pets:[],sel:null,fx:[],docs:[],set:{sound:true,names:true,pet:true},
+ edit:{on:false,tool:'floor',floor:2,furn:'desk',rot:0,hover:null,down:false,erasing:false,dirty:false,snap:'',undo:[],redo:[],rotDone:false,rotWarn:false},
+ walk:[],seats:[],coffeeSpots:[],layoutDirty:true,view:{d:2,dpr:1},staticCv:null,staticKey:''};
+const STAT={idle:['閒置','#8d97b3'],thinking:['思考中','#9ad0ff'],reading:['讀取中','#b48cff'],working:['寫入中','#6aa8ff'],permission:['待核准','#ff6b6b'],waiting:['待你確認','#ffd45c']};
+const ACT={};           // roleId -> 近期動作
+let dirtyDetail=true;
+const markUI=()=>{dirtyDetail=true};
+const oa=id=>O.agents.find(a=>a.id===id);
+const releaseLounge=a=>{if(a.loungeSeat){a.loungeSeat.occ=null;a.loungeSeat=null}};
+
+function mkOA(role){return{id:role.id,name:role.name,pal:role.pal,x:1.5,y:1.5,dir:0,mode:'stand',path:[],goal:null,seat:null,seatKey:null,loungeSeat:null,
+ status:'idle',act:'',emote:null,anim:rnd(0,5),speed:2.6,activity:null,goalDirty:true,dwell:rnd(1,3),sub:false,sleepy:false}}
+function actPush(id,k,txt){const l=ACT[id]||(ACT[id]=[]);if(l[0]&&l[0].txt===txt)return;l.unshift({ts:Date.now(),k,txt});if(l.length>40)l.pop()}
+
+/* 角色(S.roles)⇄ 辦公室角色 同步 */
+function ofcSync(){
+ if(!O.layout)return;
+ const ids=new Set(S.roles.map(r=>r.id));let changed=false;const fresh=[];
+ O.agents=O.agents.filter(a=>{if(ids.has(a.id))return true;if(a.seat)a.seat.owner=null;releaseLounge(a);changed=true;return false});
+ S.roles.forEach(r=>{
+  if(!r.pal){r.pal=makePal();save()}
+  let a=oa(r.id);if(!a){a=mkOA(r);O.agents.push(a);fresh.push(a);changed=true}
+  a.pal=r.pal;a.name=r.name;
+ });
+ const idx=id=>S.roles.findIndex(r=>r.id===id);O.agents.sort((a,b)=>idx(a.id)-idx(b.id));
+ if(changed){
+  rebuild();
+  fresh.forEach(a=>{
+   if(a.seat){a.x=a.seat.c+.5;a.y=a.seat.r+.5;a.mode='sit';a.dir=a.seat.dir}
+   else{const w=nearestWalk(Math.floor(O.layout.cols/2),Math.floor(O.layout.rows/2));if(w){a.x=w[0]+.5;a.y=w[1]+.5}}
+   burst(a.x,a.y,'#4dd4c0',14);
+  });
+ }
+ if(O.sel&&!oa(O.sel))O.sel=null;
+ const desks=O.seats.filter(s=>s.kind==='desk').length;
+ $('#deskInfo').innerHTML='目前有 <b>'+desks+'</b> 張工作桌、<b>'+S.roles.length+'</b> 個角色。'+(S.roles.length>desks?'<span class="bad-t">桌子不夠，請在上方放置更多「工作桌」。</span>':'');
+ markUI();
+}
+
+/* 對外 API:供工作流引擎呼叫 */
+function ofcSet(id,st,act){
+ const a=oa(id);if(!a)return;
+ if(a.status!==st){a.status=st;a.goalDirty=true}
+ if(act!==undefined){a.act=act;if(act)actPush(id,st,act)}
+ markUI();
+}
+function ofcEmote(id,k,t=2.6){const a=oa(id);if(a)a.emote={k,t}}
+function ofcHandoff(f,t){if(f===t||!oa(f)||!oa(t))return;O.docs.push({f,t,k:0,dur:.95});snd.pop()}
+function ofcAllIdle(){O.agents.forEach(a=>{if(a.status!=='idle'){a.status='idle';a.goalDirty=true}a.act=''});markUI()}
+function ofcCelebrate(ids){
+ const cols=['#ffb84d','#4dd4c0','#ff7a9c','#6aa8ff','#b48cff','#5fd37a'];
+ [...new Set(ids)].forEach(id=>{const a=oa(id);if(!a)return;a.emote={k:'heart',t:3.2};if(reduce)return;for(let i=0;i<18;i++)O.fx.push({x:a.x*TS+rnd(-5,5),y:a.y*TS-rnd(0,18),vx:rnd(-45,45),vy:rnd(-85,-25),life:rnd(.6,1.3),c:pick(cols),s:2})});
+ snd.done();
+}
+function burst(cx,cy,color,n){if(reduce)n=Math.ceil(n/3);for(let i=0;i<n;i++)O.fx.push({x:cx*TS+rnd(-4,4),y:cy*TS-rnd(0,14),vx:rnd(-28,28),vy:rnd(-55,-8),life:rnd(.4,.9),c:color,s:Math.random()<.4?2:1})}
+
+/* ====================== 行為(閒置/就座) ====================== */
+const wantDesk=s=>s==='thinking'||s==='reading'||s==='working'||s==='permission'||s==='waiting';
+function replan(a){
+ releaseLounge(a);
+ if(wantDesk(a.status)){
+  if(a.seat){const at=a.mode==='sit'&&Math.floor(a.x)===a.seat.c&&Math.floor(a.y)===a.seat.r&&!a.path.length;if(!at)goSeat(a,a.seat)}
+ }else{a.dwell=Math.min(a.dwell,rnd(.5,2))}
+}
+function pickIdle(a){
+ releaseLounge(a);
+ const atDesk=a.seat&&a.mode==='sit'&&Math.floor(a.x)===a.seat.c&&Math.floor(a.y)===a.seat.r;
+ const opts=[];
+ if(atDesk)opts.push(['stay',2]);else if(a.seat)opts.push(['desk',2]);
+ if(O.coffeeSpots.length)opts.push(['coffee',3]);
+ const ls=O.seats.filter(s=>s.kind==='lounge'&&!s.occ);if(ls.length)opts.push(['lounge',3]);
+ opts.push(['wander',2]);
+ let sum=opts.reduce((x,o)=>x+o[1],0),k=Math.random()*sum,ch='wander';for(const o of opts){k-=o[1];if(k<=0){ch=o[0];break}}
+ if(ch==='stay'){a.dwell=rnd(3,7)}
+ else if(ch==='desk'){goSeat(a,a.seat,rnd(4,9))}
+ else if(ch==='coffee'){const sp=pick(O.coffeeSpots);goTo(a,sp.c,sp.r,{face:sp.face,activity:'coffee',dwell:rnd(5,9)})}
+ else if(ch==='lounge'){const s=pick(ls);s.occ=a;a.loungeSeat=s;goSeat(a,s,rnd(8,18))}
+ else{const tl=reach(Math.floor(a.x),Math.floor(a.y),8);if(tl.length){const[c,r]=pick(tl);goTo(a,c,r,{dwell:rnd(1.5,4)})}else a.dwell=rnd(2,4)}
+}
+function updateAgent(a,dt){
+ a.anim+=dt;stepEntity(a,dt);
+ if(a.emote){a.emote.t-=dt;if(a.emote.t<=0)a.emote=null}
+ if(a.goalDirty){a.goalDirty=false;replan(a)}
+ if(a.status==='idle'&&!a.path.length){a.dwell-=dt;if(a.dwell<=0)pickIdle(a)}
+}
+
+/* ====================== 版面變更 ====================== */
+function layoutChanged(){O.layoutDirty=false;rebuild();fit();S.layout=O.layout;save();updateSizeUI();ofcSync();markUI()}
+
+/* ====================== 主迴圈與繪圖 ====================== */
+const cv=$('#cv'),ctx=cv.getContext('2d');
+let last=0,lastUI=0,lastKey=0;
+function frame(now){
+ requestAnimationFrame(frame);
+ const dt=Math.min(.05,(now-last)/1000);last=now;
+ if(O.layoutDirty)layoutChanged();
+ O.agents.forEach(a=>updateAgent(a,dt));
+ if(O.set.pet)O.pets.forEach(p=>updatePet(p,dt));
+ for(let i=O.fx.length-1;i>=0;i--){const p=O.fx[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=60*dt;p.life-=dt;if(p.life<=0)O.fx.splice(i,1)}
+ for(let i=O.docs.length-1;i>=0;i--){const d=O.docs[i];d.k+=dt;if(d.k>=d.dur){const B=oa(d.t);if(B)burst(B.x,B.y-.3,'#ffffff',6);O.docs.splice(i,1)}}
+ if(now-lastKey>1000){lastKey=now;if(skyKey()!==O.staticKey)buildStatic()}
+ drawOffice(now);
+ if(now-lastUI>250){lastUI=now;uiTick()}
+}
+function drawOffice(now){
+ const L=O.layout,W=L.cols*TS,H=L.rows*TS,v=O.view,g=ctx,tm=now/1000;
+ g.setTransform(v.d,0,0,v.d,0,0);g.imageSmoothingEnabled=false;
+ g.fillStyle='#0d1017';g.fillRect(0,0,W,H);
+ g.drawImage(O.staticCv,0,0);
+ const SCR={idle:0,working:1,reading:2,thinking:3,waiting:3,permission:4},deskScr=new Map();
+ O.agents.forEach(a=>{if(a.seat&&a.mode==='sit'&&Math.floor(a.x)===a.seat.c&&Math.floor(a.y)===a.seat.r)deskScr.set(a.seat.desk,SCR[a.status]||0)});
+ const items=[];
+ L.furn.forEach(f=>{const d=FURN[f.t];if(d.wall||d.under)return;items.push({y:(f.r+d.h)*TS+(d.sortOff||0),fn:()=>drawFurn(g,f,f.c*TS,f.r*TS,{t:tm,scr:deskScr.get(f)||0})})});
+ O.seats.forEach(s=>{if(s.kind==='desk')items.push({y:s.r*TS+8,fn:()=>drawChair(g,s.c*TS,s.r*TS,s.dir)})});
+ O.agents.forEach(a=>{
+  const px=a.x*TS,py=a.y*TS+5;
+  if(a.id===O.sel&&!O.edit.on)items.push({y:py-.5,fn:()=>{g.fillStyle=Math.floor(tm*3)%2?'#ffb84d':'#fff';g.fillRect(Math.round(px)-7,Math.round(py)-1,14,1);g.fillRect(Math.round(px)-7,Math.round(py)+2,14,1);g.fillRect(Math.round(px)-8,Math.round(py),1,2);g.fillRect(Math.round(px)+7,Math.round(py),1,2)}});
+  items.push({y:py,fn:()=>drawChar(g,a,px,py,1)});
+ });
+ if(O.set.pet)O.pets.forEach(e=>items.push({y:e.y*TS+5,fn:()=>drawCat(g,e,e.x*TS,e.y*TS+5)}));
+ items.sort((a,b)=>a.y-b.y);items.forEach(i=>i.fn());
+ // 交接文件
+ O.docs.forEach(d=>{
+  const A=oa(d.f),B=oa(d.t);if(!A||!B)return;const k=clamp(d.k/d.dur,0,1);
+  const x=Math.round(A.x*TS+(B.x-A.x)*TS*k),y=Math.round(A.y*TS-10+(B.y-A.y)*TS*k-Math.sin(Math.PI*k)*14);
+  g.fillStyle='#000';g.fillRect(x-4,y-5,8,10);g.fillStyle='#fff';g.fillRect(x-3,y-4,6,8);g.fillStyle='#6aa8ff';g.fillRect(x-2,y-3,4,1);g.fillRect(x-2,y-1,4,1);g.fillRect(x-2,y+1,3,1);
+ });
+ // 狀態氣泡
+ O.agents.forEach(a=>{
+  const px=a.x*TS,top=a.y*TS+5-22+(a.mode==='sit'?3:0)-(a.pal.style===3?2:0);
+  const flo=reduce?0:Math.round(Math.sin(tm*4+a.name.length));
+  if(a.emote){drawBubble(g,px,top,a.emote.k,tm);return}
+  if(a.status==='permission')drawBubble(g,px,top,'ex',tm);
+  else if(a.status==='waiting')drawBubble(g,px,top,'q',tm);
+  else if(a.status==='thinking')drawBubble(g,px,top,'dots',tm);
+  else if(a.status==='working')drawBM(g,BM.pencil,Math.round(px)-3,top-7+flo,'#6aa8ff');
+  else if(a.status==='reading')drawBM(g,BM.lens,Math.round(px)-3,top-7+flo,'#b48cff');
+ });
+ if(O.set.pet)O.pets.forEach(e=>{
+  if(e.emote)drawBubble(g,e.x*TS,e.y*TS+5-9,e.emote.k,tm);
+  else if(e.mode==='sleep')drawBM(g,BM.z,Math.round(e.x*TS)+4,Math.round(e.y*TS)-8+Math.round(Math.sin(tm*2)),'#cfe3ff');
+ });
+ O.fx.forEach(p=>{g.globalAlpha=clamp(p.life*2,0,1);g.fillStyle=p.c;g.fillRect(Math.round(p.x),Math.round(p.y),p.s,p.s)});g.globalAlpha=1;
+ // 編輯覆蓋
+ const E=O.edit;
+ if(E.on){
+  g.fillStyle='rgba(255,255,255,.16)';const lw=Math.max(1/v.d,.35);
+  for(let c=0;c<=L.cols;c++)g.fillRect(c*TS-lw/2,0,lw,H);for(let r=0;r<=L.rows;r++)g.fillRect(0,r*TS-lw/2,W,lw);
+  if(E.hover){
+   const[hc,hr]=E.hover;g.fillStyle='rgba(255,184,77,.22)';g.fillRect(hc*TS,hr*TS,TS,TS);
+   if(E.tool==='furn'){const f={t:E.furn,c:hc,r:hr,rot:E.rot},ok=canPlace(E.furn,hc,hr);g.globalAlpha=.7;drawFurn(g,f,hc*TS,hr*TS,{t:tm,phase:skyPhase(),scr:1});g.globalAlpha=1;
+    if(!ok){g.fillStyle='rgba(255,60,60,.4)';g.fillRect(hc*TS,hr*TS,FURN[E.furn].w*TS,TS)}}
+  }
+ }
+ // 名稱與狀態標籤(螢幕解析度)
+ if(O.set.names||O.sel!=null){
+  g.setTransform(1,0,0,1,0,0);
+  const fs=Math.max(10,Math.round(v.d*4.4));g.textAlign='center';g.textBaseline='alphabetic';g.lineJoin='round';
+  O.agents.forEach(a=>{
+   if(!O.set.names&&a.id!==O.sel)return;
+   const x=a.x*TS*v.d,y=(a.y*TS+5+(a.mode==='sit'?3:0)+7)*v.d,nm=a.name.length>8?a.name.slice(0,7)+'…':a.name;
+   g.font=`700 ${fs}px system-ui,"Noto Sans TC",sans-serif`;
+   g.lineWidth=Math.max(3,v.d*.9);g.strokeStyle='rgba(0,0,0,.85)';g.strokeText(nm,x,y);g.fillStyle=a.id===O.sel?'#ffb84d':'#fff';g.fillText(nm,x,y);
+   if(a.status!=='idle'){const st=STAT[a.status],y2=y+fs*1.05;g.font=`700 ${Math.round(fs*.82)}px system-ui,"Noto Sans TC",sans-serif`;g.strokeText(st[0],x,y2);g.fillStyle=st[1];g.fillText(st[0],x,y2)}
+  });
+ }
+}
+
+/* ====================== 畫布縮放 ====================== */
+function isMobile(){return matchMedia('(max-width:860px)').matches}
+function fit(){
+ const L=O.layout,W=L.cols*TS,H=L.rows*TS,stage=$('#stage');
+ const mobile=isMobile(),pd=mobile?16:24;
+ const availW=Math.max(120,stage.clientWidth-pd);
+ const availH=mobile?Math.max(170,innerHeight*(O.edit.on?.36:.4)):Math.max(120,stage.clientHeight-pd);
+ const s=Math.min(availW/W,availH/H),dpr=window.devicePixelRatio||1;
+ let d=s*dpr;const di=Math.floor(d);if(di>=1&&di/d>=.85)d=di;
+ const cw=Math.round(W*d),ch=Math.round(H*d);
+ if(cv.width!==cw||cv.height!==ch){cv.width=cw;cv.height=ch}
+ cv.style.width=cw/dpr+'px';cv.style.height=ch/dpr+'px';
+ O.view={d:cw/W,dpr};
+ const root=document.documentElement.style;
+ root.setProperty('--hh',$('#top').offsetHeight+'px');
+ root.setProperty('--sh',(mobile?stage.offsetHeight:0)+'px');
+}
+
+/* ====================== 互動:畫布 ====================== */
+function toWorld(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*O.layout.cols*TS,y:(e.clientY-r.top)/r.height*O.layout.rows*TS}}
+function pickAt(p){
+ let best=null,bd=1e9;
+ O.agents.forEach(a=>{const px=a.x*TS,py=a.y*TS+5+(a.mode==='sit'?3:0);
+  if(p.x>=px-8&&p.x<=px+8&&p.y>=py-23&&p.y<=py+3){const d=Math.abs(p.y-(py-9))+Math.abs(p.x-px);if(d<bd){bd=d;best=a}}});
+ return best;
+}
+const pickPet=p=>O.set.pet?O.pets.find(e=>{const px=e.x*TS,py=e.y*TS+5;return p.x>=px-8&&p.x<=px+8&&p.y>=py-12&&p.y<=py+3}):null;
+cv.addEventListener('pointerdown',e=>{
+ const p=toWorld(e);
+ if(O.edit.on){
+  cv.setPointerCapture(e.pointerId);const E=O.edit;E.down=true;E.erasing=e.button===2;E.dirty=false;E.snap=JSON.stringify(O.layout);
+  E.hover=[Math.floor(p.x/TS),Math.floor(p.y/TS)];applyAt(p);e.preventDefault();return;
+ }
+ const pet=pickPet(p);
+ if(pet){pet.emote={k:'heart',t:1.6};burst(pet.x,pet.y-.4,'#f0568a',8);snd.meow();return}
+ const a=pickAt(p);selectRole(a?a.id:null);
+});
+cv.addEventListener('pointermove',e=>{
+ if(!O.edit.on)return;const p=toWorld(e),E=O.edit;
+ const c=Math.floor(p.x/TS),r=Math.floor(p.y/TS);E.hover=inb(c,r)?[c,r]:null;
+ if(E.down)applyAt(p);
+});
+['pointerup','pointercancel'].forEach(n=>cv.addEventListener(n,()=>{O.edit.down=false;O.edit.erasing=false}));
+cv.addEventListener('pointerleave',()=>{if(!O.edit.down)O.edit.hover=null});
+cv.addEventListener('contextmenu',e=>{if(O.edit.on)e.preventDefault()});
+
+/* ====================== 編輯器 ====================== */
+function beginChange(){const E=O.edit;if(!E.dirty){E.dirty=true;E.undo.push(E.snap);if(E.undo.length>60)E.undo.shift();E.redo.length=0;updateUndo()}O.layoutDirty=true}
+function canPlace(tp,c,r){
+ const d=FURN[tp],L=O.layout;
+ if(c<0||r<0||c+d.w>L.cols||r+d.h>L.rows)return false;
+ for(let i=0;i<d.w;i++){const v=L.tiles[r][c+i];if(d.wall?v!==1:v<2)return false}
+ return true;
+}
+function applyAt(p){
+ const E=O.edit,L=O.layout,c=Math.floor(p.x/TS),r=Math.floor(p.y/TS);
+ if(!inb(c,r))return;
+ const tool=E.erasing?'erase':E.tool;
+ if(tool==='floor'){
+  if(L.tiles[r][c]!==E.floor){beginChange();L.tiles[r][c]=E.floor;L.furn=L.furn.filter(f=>!(FURN[f.t].wall&&covers(f,c,r)))}
+ }else if(tool==='wall'){
+  if(L.tiles[r][c]!==1){beginChange();L.tiles[r][c]=1;L.furn=L.furn.filter(f=>FURN[f.t].wall||!covers(f,c,r))}
+ }else if(tool==='furn'){
+  if(!canPlace(E.furn,c,r))return;
+  const d=FURN[E.furn],lay=d.wall?'wall':d.under?'under':'floor';
+  const same=L.furn.find(f=>f.t===E.furn&&f.c===c&&f.r===r&&(f.rot|0)===(d.rot?E.rot:0));
+  if(same)return;
+  beginChange();
+  L.furn=L.furn.filter(f=>{if(layerOf(f)!==lay)return true;for(let i=0;i<d.w;i++)if(covers(f,c+i,r))return false;return true});
+  L.furn.push({t:E.furn,c,r,rot:d.rot?E.rot:0});
+ }else if(tool==='erase'){
+  const has=L.furn.some(f=>covers(f,c,r));
+  if(has){beginChange();L.furn=L.furn.filter(f=>!covers(f,c,r))}
+  else if(L.tiles[r][c]!==0){beginChange();L.tiles[r][c]=0}
+ }else if(tool==='rot'){
+  const f=[...L.furn].reverse().find(f=>covers(f,c,r)&&FURN[f.t].rot);
+  if(f){if(!E.rotDone){beginChange();f.rot=((f.rot|0)+1)&3;E.rotDone=true;setTimeout(()=>{E.rotDone=false},180)}}
+  else if(!E.rotWarn){toast('這個家具不能旋轉');E.rotWarn=true;setTimeout(()=>{E.rotWarn=false},900)}
+ }
+}
+function undo(){const E=O.edit;if(!E.undo.length)return;E.redo.push(JSON.stringify(O.layout));O.layout=JSON.parse(E.undo.pop());O.layoutDirty=true;updateUndo()}
+function redo(){const E=O.edit;if(!E.redo.length)return;E.undo.push(JSON.stringify(O.layout));O.layout=JSON.parse(E.redo.pop());O.layoutDirty=true;updateUndo()}
+function updateUndo(){$('#btnUndo').disabled=!O.edit.undo.length;$('#btnRedo').disabled=!O.edit.redo.length}
+function resizeLayout(dc,dr){
+ const L=O.layout,nc=clamp(L.cols+dc,8,32),nr=clamp(L.rows+dr,6,24);if(nc===L.cols&&nr===L.rows)return;
+ const E=O.edit;E.snap=JSON.stringify(L);E.dirty=false;beginChange();
+ const tiles=[];for(let r=0;r<nr;r++){tiles.push([]);for(let c=0;c<nc;c++)tiles[r].push(r<L.rows&&c<L.cols?L.tiles[r][c]:0)}
+ L.tiles=tiles;L.cols=nc;L.rows=nr;L.furn=L.furn.filter(f=>f.c+FURN[f.t].w<=nc&&f.r+FURN[f.t].h<=nr);
+}
+function updateSizeUI(){if(!O.layout)return;$('#szC').textContent=O.layout.cols;$('#szR').textContent=O.layout.rows}
+const FLBL={desk:'工作桌',sofa:'沙發',plant:'盆栽',shelf:'書架',coffee:'咖啡機',printer:'印表機',rug:'地毯',window:'窗戶',board:'白板',clock:'時鐘',poster:'海報'};
+const FLRLBL={2:'木地板',3:'深木',4:'磁磚',5:'深磁磚',6:'青地毯',7:'紫地毯',8:'紅地毯'};
+function buildEditorUI(){
+ const tools=[['floor','▦','地板'],['wall','▥','牆壁'],['furn','🪑','家具'],['erase','⌫','橡皮擦'],['rot','⟳','旋轉']];
+ $('#tools').innerHTML=tools.map(([k,i,l])=>`<button class="tool" data-tool="${k}" aria-pressed="${O.edit.tool===k}"><span>${i}</span>${l}</button>`).join('');
+ const pf=$('#palFloor');pf.innerHTML='';
+ FLOORS.forEach(F=>{
+  const b=document.createElement('button');b.className='pal';b.dataset.floor=F.id;b.setAttribute('aria-pressed',O.edit.floor===F.id);
+  const c=document.createElement('canvas');c.width=c.height=16;c.style.width='36px';c.style.height='36px';floorTile(c.getContext('2d'),F.id,0,0,1,1);
+  b.appendChild(c);b.append(FLRLBL[F.id]);pf.appendChild(b);
+ });
+ const pu=$('#palFurn');pu.innerHTML='';
+ FURN_ORDER.forEach(k=>{
+  const d=FURN[k],b=document.createElement('button');b.className='pal';b.dataset.furn=k;b.setAttribute('aria-pressed',O.edit.furn===k);
+  const c=document.createElement('canvas');c.width=d.w*TS;c.height=TS+6;c.style.width=d.w*30+'px';c.style.height=(TS+6)*30/16+'px';
+  const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.fillStyle=d.wall?'#5d6987':'#a97c4e';g.fillRect(0,0,c.width,c.height);
+  drawFurn(g,{t:k,c:0,r:0,rot:0},0,6,{t:0,scr:1,phase:'day'});b.appendChild(c);b.append(FLBL[k]);pu.appendChild(b);
+ });
+ syncTools();
+}
+function syncTools(){
+ $$('#tools .tool').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===O.edit.tool));
+ $$('#palFloor .pal').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.floor===O.edit.floor));
+ $$('#palFurn .pal').forEach(b=>b.setAttribute('aria-pressed',b.dataset.furn===O.edit.furn));
+ $('#palFloor').hidden=O.edit.tool!=='floor';$('#palFurn').hidden=O.edit.tool!=='furn';
+}
+$('#tools').addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(!b)return;O.edit.tool=b.dataset.tool;syncTools()});
+$('#palFloor').addEventListener('click',e=>{const b=e.target.closest('[data-floor]');if(!b)return;O.edit.floor=+b.dataset.floor;O.edit.tool='floor';syncTools()});
+$('#palFurn').addEventListener('click',e=>{const b=e.target.closest('[data-furn]');if(!b)return;O.edit.furn=b.dataset.furn;O.edit.tool='furn';syncTools()});
+$$('[data-size]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.size;resizeLayout(k==='c+'?1:k==='c-'?-1:0,k==='r+'?1:k==='r-'?-1:0)}));
+$('#btnUndo').onclick=undo;$('#btnRedo').onclick=redo;
+$('#btnDefault').onclick=()=>{if(!confirm('要還原成預設佈局嗎？（可用復原）'))return;const E=O.edit;E.snap=JSON.stringify(O.layout);E.dirty=false;beginChange();O.layout=defaultLayout();toast('已還原預設佈局')};
+function setEdit(on){
+ O.edit.on=on;O.edit.hover=null;cv.classList.toggle('edit',on);
+ $('#hint').textContent=on?'點擊／拖曳繪製 · 右鍵橡皮擦 · R 旋轉':'點角色查看詳情 · 點貓咪逗牠';
+ if(on)selectRole(null);
+ if(O.layout)fit();
+}
+
+/* ---- 佈局匯入/匯出 ---- */
+const dlg=$('#dlgIO');
+function openIO(){$('#ioText').value=JSON.stringify({app:'pixel-office',v:1,layout:O.layout});try{dlg.showModal()}catch(e){dlg.setAttribute('open','')}}
+$('#btnIO').onclick=openIO;$('#ioClose').onclick=()=>dlg.close();
+$('#ioCopy').onclick=async()=>{const ta=$('#ioText');try{await navigator.clipboard.writeText(ta.value)}catch(e){ta.select();document.execCommand&&document.execCommand('copy')}toast('已複製到剪貼簿')};
+$('#ioDown').onclick=()=>dl($('#ioText').value,'pixel-office-layout.json','application/json');
+$('#ioPick').onclick=()=>$('#ioFile').click();
+$('#ioFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('#ioText').value=String(r.result)};r.readAsText(f);e.target.value=''};
+$('#ioApply').onclick=()=>{
+ try{
+  const o=JSON.parse($('#ioText').value),lay=sanitizeLayout(o.layout||o);if(!lay)throw 0;
+  const E=O.edit;E.snap=JSON.stringify(O.layout);E.dirty=false;beginChange();O.layout=lay;dlg.close();toast('佈局已匯入');
+ }catch(e){toast('JSON 格式不正確，無法匯入')}
+};
+document.addEventListener('keydown',e=>{
+ if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||!O.edit.on)return;
+ const k=e.key.toLowerCase();
+ if(k==='r'){O.edit.rot=(O.edit.rot+1)&3;if(O.edit.tool!=='furn')O.edit.tool='rot';syncTools()}
+ else if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo()}
+ else if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();redo()}
+});
+let toastT=0;
+function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2600)}
+function drawAvatar(c,pal){const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);g.imageSmoothingEnabled=false;drawChar(g,{pal,dir:0,mode:'stand',anim:0,status:'idle',sub:false},12,25)}
+
+/* ====================== 小蝦工作流引擎(整合版) ====================== */
+const PRESET={openai:["https://api.openai.com/v1","gpt-4o"],anthropic:["https://api.anthropic.com","claude-sonnet-4-5"],ollama:["http://localhost:11434/v1","qwen2.5"],puter:["","gpt-4o-mini"],demo:["","demo"]};
+const TOOLS=[
+ {name:"list_dir",description:"列出資料夾內容，path 為相對路徑，根目錄用空字串。",props:{path:{type:"string"}},req:[]},
+ {name:"read_file",description:"讀取文字檔。",props:{path:{type:"string"}},req:["path"]},
+ {name:"write_file",description:"建立或覆寫文字檔，自動建立資料夾。",props:{path:{type:"string"},content:{type:"string"}},req:["path","content"]},
+ {name:"search",description:"搜尋包含關鍵字的文字行。",props:{query:{type:"string"},path:{type:"string"}},req:["query"]},
+ {name:"append_file",description:"在檔案末尾附加內容，檔案不存在則建立。",props:{path:{type:"string"},content:{type:"string"}},req:["path","content"]},
+ {name:"replace_in_file",description:"將檔案中第一處 find 文字取代為 replace，適合小幅修改。",props:{path:{type:"string"},find:{type:"string"},replace:{type:"string"}},req:["path","find","replace"]},
+ {name:"delete_file",description:"刪除單一檔案（每次都需使用者確認）。",props:{path:{type:"string"}},req:["path"]}
+];
+const TN={list_dir:"列目錄",read_file:"讀檔",write_file:"寫檔",search:"搜尋",append_file:"附加",replace_in_file:"取代",delete_file:"刪檔"};
+const READ=new Set(["list_dir","read_file","search"]);
+const TPL=[
+ {name:"研究員",sys:"你負責蒐集並整理資料，條列重點並標示來源檔名，不做無根據的推論。",tools:["list_dir","read_file","search"]},
+ {name:"程式碼審查員",sys:"你審查程式碼的正確性、安全性與可讀性，依嚴重程度列出問題與修改建議，並引用檔名與行號。",tools:["list_dir","read_file","search"]},
+ {name:"翻譯員",sys:"你負責忠實翻譯，保留格式與專有名詞，並將譯文寫入檔案。",tools:["read_file","write_file"]},
+ {name:"摘要員",sys:"你負責把長文濃縮成條理清楚的摘要，附上關鍵結論與待辦事項。",tools:["read_file"]}];
+
+/* ---------- 狀態(沿用 xlx3，原本的設定會保留) ---------- */
+const DEMO_LLM={id:"demo",name:"離線示範",prov:"demo",base:"",key:"",model:"demo"};
+let S={llms:[{...DEMO_LLM},{id:"putter",name:"Puter AI（免 Key）",prov:"puter",base:"",key:"",model:"gpt-4o-mini"}],defLlm:"demo",cl:0,autoWrite:false,saveRuns:false,wsKind:"mem",roles:[],flows:[],cf:0,layout:null,ui:{sound:true,names:true,pet:true}};
+let isFresh=true;
+try{const x=JSON.parse(localStorage.getItem("xlx3")||"null");if(x&&typeof x==="object"){isFresh=false;S=Object.assign(S,x)}}catch(e){}
+if(!Array.isArray(S.llms)||!S.llms.length)S.llms=[{...DEMO_LLM}];
+if(!S.llms.some(l=>l.prov==="demo"))S.llms.push({...DEMO_LLM});
+if(!S.llms.some(l=>l.id===S.defLlm))S.defLlm=S.llms[0].id;
+S.ui=Object.assign({sound:true,names:true,pet:true},S.ui||{});
+S.roles=Array.isArray(S.roles)?S.roles:[];S.flows=Array.isArray(S.flows)?S.flows:[];
+if(!(S.cf<S.flows.length))S.cf=0;if(!(S.cl<S.llms.length))S.cl=0;
+if(S.wsKind==="fs"&&!window.showDirectoryPicker)S.wsKind="mem";
+const save=()=>{try{localStorage.setItem("xlx3",JSON.stringify(S))}catch(e){}};
+const llmOf=r=>S.llms.find(x=>x.id===r.llm)||S.llms.find(x=>x.id===S.defLlm)||S.llms[0];
+const llmName=id=>(S.llms.find(x=>x.id===id)||S.llms[0]).name;
+const llmOpts=v=>S.llms.map(l=>`<option value="${l.id}"${l.id==v?" selected":""}>${esc(l.name)}</option>`).join("");
+let fsRoot=null,fsMsg="尚未選擇資料匣",busy=false,ctl=null,logs=[],activeTab="run";
+const RUN={tools:0};
+const uid=()=>"i"+Math.random().toString(36).slice(2,8);
+const setPath=(p,v)=>{const k=p.split(".");let o=S;for(let i=0;i<k.length-1;i++)o=o[k[i]];o[k[k.length-1]]=v;save()};
+const abortErr=()=>{const e=new Error("abort");e.name="AbortError";return e};
+const sleep=ms=>new Promise((ok,no)=>{if(ctl&&ctl.signal.aborted)return no(abortErr());const t=setTimeout(ok,ms);if(ctl)ctl.signal.addEventListener("abort",()=>{clearTimeout(t);no(abortErr())},{once:true})});
+
+/* ---------- IndexedDB(資料匣權限、虛擬工作區) ---------- */
+const idb=()=>new Promise((ok,no)=>{const r=indexedDB.open("xlx2",1);r.onupgradeneeded=()=>r.result.createObjectStore("h");r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+async function hPut(v,k="root"){try{(await idb()).transaction("h","readwrite").objectStore("h").put(v,k)}catch(e){}}
+async function hGet(k="root"){try{const d=await idb();return await new Promise(ok=>{const r=d.transaction("h").objectStore("h").get(k);r.onsuccess=()=>ok(r.result);r.onerror=()=>ok(null)})}catch(e){return null}}
+
+/* ---------- 工作區:虛擬(瀏覽器內)或本機真實資料匣 ---------- */
+const MEM={files:{},dirs:new Set()};
+let memT=0;const memSave=()=>{clearTimeout(memT);memT=setTimeout(()=>hPut({files:MEM.files,dirs:[...MEM.dirs]},"mem"),300)};
+const wsReady=()=>S.wsKind==="fs"?!!fsRoot:true;
+const isFs=()=>S.wsKind==="fs";
+const parts=p=>{const a=String(p||"").split("/").filter(x=>x&&x!==".");if(a.includes(".."))throw new Error("路徑不可包含 ..");return a};
+const P=a=>a.join("/");
+async function dirAt(base,a,create){let d=base;for(const n of a)d=await d.getDirectoryHandle(n,{create});return d}
+async function walkFs(d,pre,fn,c){for await(const [n,h] of d.entries()){if(c.n>400)return;if(h.kind==="directory"){if(n.startsWith(".")||n==="node_modules")continue;await walkFs(h,pre+n+"/",fn,c)}else{c.n++;await fn(pre+n,()=>h.getFile())}}}
+const V={
+ async ensureDir(a){if(!a.length)return;if(isFs())await dirAt(fsRoot,a,true);else{for(let i=1;i<=a.length;i++)MEM.dirs.add(P(a.slice(0,i)));memSave()}},
+ async list(a){
+  if(isFs()){const d=await dirAt(fsRoot,a),o=[];for await(const [n,h] of d.entries())o.push((h.kind==="directory"?"[資料夾] ":"[檔案] ")+n);return o.sort()}
+  const pre=a.length?P(a)+"/":"",m=new Map();let ex=!a.length||MEM.dirs.has(P(a));
+  const add=(p,isDir)=>{if(!p.startsWith(pre))return;ex=true;const rest=p.slice(pre.length);if(!rest)return;const i=rest.indexOf("/");if(i<0)m.set(rest,isDir?"[資料夾] ":"[檔案] ");else m.set(rest.slice(0,i),"[資料夾] ")};
+  Object.keys(MEM.files).forEach(p=>add(p,false));MEM.dirs.forEach(p=>add(p,true));
+  if(!ex)throw new Error("找不到資料夾："+P(a));
+  return[...m].map(([n,k])=>k+n).sort();
+ },
+ async read(a){
+  if(isFs())return await(await(await(await dirAt(fsRoot,a.slice(0,-1))).getFileHandle(a[a.length-1])).getFile()).text();
+  const k=P(a);if(!(k in MEM.files))throw new Error("找不到檔案："+k);return MEM.files[k];
+ },
+ async write(a,txt){
+  if(isFs()){const w=await(await(await dirAt(fsRoot,a.slice(0,-1),true)).getFileHandle(a[a.length-1],{create:true})).createWritable();await w.write(txt);await w.close();return}
+  MEM.files[P(a)]=txt;memSave();
+ },
+ async append(a,txt){let old="";try{old=await V.read(a)}catch(e){}await V.write(a,old+txt)},
+ async remove(a){
+  if(isFs()){await(await dirAt(fsRoot,a.slice(0,-1))).removeEntry(a[a.length-1]);return}
+  const k=P(a);if(!(k in MEM.files))throw new Error("找不到檔案："+k);delete MEM.files[k];memSave();
+ },
+ async walk(a,fn){
+  if(isFs()){const pa=a;await walkFs(await dirAt(fsRoot,a),pa.length?P(pa)+"/":"",fn,{n:0});return}
+  const pre=a.length?P(a)+"/":"";
+  for(const k of Object.keys(MEM.files)){if(pre&&!k.startsWith(pre))continue;await fn(k,async()=>({size:MEM.files[k].length,text:async()=>MEM.files[k]}))}
+ }
+};
+
+/* ---------- 應用內核准(取代瀏覽器 confirm；同時驅動辦公室角色的「待核准」狀態) ---------- */
+const PEND=[];
+function askPerm({role,kind,title,detail}){
+ return new Promise(ok=>{
+  const a=oa(role.id),it={id:uid(),kind,roleId:role.id,roleName:role.name,title,detail,resolve:ok,prev:a&&a.status!=="permission"?a.status:"working"};
+  PEND.push(it);ofcSet(role.id,"permission","等待核准："+title);snd.perm();toast(role.name+" 請求："+title);pendDraw();
+ });
+}
+function gate(title,text,role){
+ return new Promise(ok=>{
+  const it={id:uid(),kind:"gate",roleId:role.id,roleName:role.name,title,text,resolve:ok};
+  PEND.push(it);ofcSet(role.id,"waiting","等待你核准這一步");snd.ask();toast("「"+role.name+"」這一步需要你核准");setStat("等待你核准…");pendDraw();
+ });
+}
+function resolvePend(it,v){
+ const i=PEND.indexOf(it);if(i<0)return;PEND.splice(i,1);
+ if(it.kind!=="gate")ofcSet(it.roleId,PEND.some(x=>x.roleId===it.roleId&&x.kind!=="gate")?"permission":it.prev||"working");
+ logs.push(it.kind==="gate"?(v===null?"（已終止）":"（已核准）"):"- "+(v?"核准":"拒絕")+"：「"+it.roleName+"」"+it.title);
+ it.resolve(v);pendDraw();
+}
+function cancelPending(){PEND.slice().forEach(x=>resolvePend(x,x.kind==="gate"?null:false))}
+function pendDraw(){
+ const box=$("#pend"),n=PEND.length;
+ $("#btnPend").hidden=!n;$("#pendN").textContent=n||"";
+ document.title=(n?"("+n+") ":"")+"小蝦辦公室 · 多角色工作流";
+ markUI();
+ if(!n){box.hidden=true;box.innerHTML="";return}
+ box.hidden=false;
+ box.innerHTML=`<div class="ph"><b>⚑ 待處理（${n}）</b>${PEND.some(x=>x.kind==="write")?`<button class="sm ok" data-do="allowall">全部允許寫入</button>`:""}</div>`+
+ PEND.map(x=>x.kind==="gate"
+  ?`<div class="card"><div><b>${esc(x.roleName)}</b>：${esc(x.title)}</div><textarea data-gate="${x.id}" aria-label="交給這一步的內容，可先修改">${esc(x.text)}</textarea><div class="row"><button class="pri" data-do="gok" data-id="${x.id}">核准並繼續</button><button data-do="gno" data-id="${x.id}">終止流程</button></div></div>`
+  :`<div class="card ${x.kind==="delete"?"del":""}"><div><b>${esc(x.roleName)}</b> 請求：${esc(x.title)}</div><pre>${esc(x.detail||"")}</pre><div class="row"><button class="ok" data-do="allow" data-id="${x.id}">✔ 允許</button><button class="bad" data-do="deny" data-id="${x.id}">✖ 拒絕</button>${x.kind==="delete"?`<span class="mut">刪檔需逐一確認</span>`:""}</div></div>`).join("");
+}
+$("#pend").addEventListener("input",e=>{const t=e.target;if(t.dataset.gate){const it=PEND.find(x=>x.id===t.dataset.gate);if(it)it.text=t.value}});
+
+/* ---------- 檔案工具(以角色子目錄為範圍) ---------- */
+const abs=(b,p)=>[...b,...parts(p)];
+const shown=(b,p)=>"/"+parts(p).join("/");
+const impl={
+ async list_dir(b,{path}){const o=await V.list(abs(b,path));return o.join("\n")||"（空資料夾）"},
+ async read_file(b,{path}){const a=abs(b,path);if(a.length===b.length)throw new Error("缺少檔名");const t=await V.read(a);return t.length>60000?t.slice(0,60000)+"\n…（已截斷）":t},
+ async write_file(b,{path,content},cx){
+  const a=abs(b,path);if(a.length===b.length)throw new Error("缺少檔名");content=String(content??"");
+  if(!S.autoWrite&&!await askPerm({role:cx.role,kind:"write",title:"寫入檔案 "+shown(b,path),detail:content.slice(0,600)+(content.length>600?"…":"")+"\n（共 "+content.length+" 字）"}))return "使用者拒絕寫入。";
+  await V.write(a,content);return "已寫入 "+shown(b,path)},
+ async search(b,{query,path},cx){
+  const q=String(query||"").toLowerCase(),out=[],a=abs(b,path),strip0=b.length?P(b)+"/":"";
+  if(!q)throw new Error("缺少 query");
+  await V.walk(a,async(p,get)=>{if(out.length>=50)return;let f,t;try{f=await get();if(f.size>200000)return;t=await f.text()}catch(e){return}if(t.includes("\0"))return;
+   const disp=strip0&&p.startsWith(strip0)?p.slice(strip0.length):p;
+   t.split("\n").forEach((l,i)=>{if(out.length<50&&l.toLowerCase().includes(q))out.push(disp+":"+(i+1)+": "+l.trim().slice(0,160))})});
+  return out.join("\n")||"沒有找到符合的內容。"},
+ async append_file(b,{path,content},cx){
+  const a=abs(b,path);if(a.length===b.length)throw new Error("缺少檔名");content=String(content??"");
+  if(!S.autoWrite&&!await askPerm({role:cx.role,kind:"write",title:"附加內容到 "+shown(b,path),detail:content.slice(0,600)+(content.length>600?"…":"")}))return "使用者拒絕寫入。";
+  await V.append(a,content);return "已附加到 "+shown(b,path)},
+ async replace_in_file(b,{path,find,replace},cx){
+  const a=abs(b,path);if(a.length===b.length)throw new Error("缺少檔名");
+  if(typeof find!=="string"||!find)throw new Error("缺少 find");replace=String(replace??"");
+  const old=await V.read(a);if(!old.includes(find))throw new Error("找不到要取代的文字");
+  if(!S.autoWrite&&!await askPerm({role:cx.role,kind:"write",title:"修改檔案 "+shown(b,path),detail:"將\n"+find.slice(0,250)+"\n取代為\n"+replace.slice(0,250)}))return "使用者拒絕寫入。";
+  await V.write(a,old.replace(find,()=>replace));return "已修改 "+shown(b,path)},
+ async delete_file(b,{path},cx){
+  const a=abs(b,path);if(a.length===b.length)throw new Error("缺少檔名");
+  if(!await askPerm({role:cx.role,kind:"delete",title:"刪除檔案 "+shown(b,path),detail:"此操作無法復原。"}))return "使用者拒絕刪除。";
+  await V.remove(a);return "已刪除 "+shown(b,path)}
+};
+
+/* ---------- Markdown / 匯出 ---------- */
+function md(t){
+  const bl=[];t=t.replace(/```[^\n]*\n([\s\S]*?)```/g,(_,c)=>{bl.push(c);return "\n\u0000"+(bl.length-1)+"\u0000\n"});
+  const inl=x=>esc(x).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const Ls=t.split("\n"),o=[],LI=/^\s*([-*]|\d+\.)\s+/,TB=/^\s*\|.*\|\s*$/;let i=0;
+  while(i<Ls.length){
+    const l=Ls[i];let m;
+    if(/^\u0000\d+\u0000$/.test(l.trim())){o.push("<pre>"+esc(bl[+l.trim().slice(1,-1)])+"</pre>");i++}
+    else if(m=l.match(/^(#{1,6})\s+(.*)/)){const n=Math.min(m[1].length+2,6);o.push("<h"+n+">"+inl(m[2])+"</h"+n+">");i++}
+    else if(/^\s*(---+|\*\*\*+)\s*$/.test(l)){o.push("<hr>");i++}
+    else if(TB.test(l)){const rows=[];while(i<Ls.length&&TB.test(Ls[i])){rows.push(Ls[i]);i++}
+      const cells=r=>r.trim().replace(/^\||\|$/g,"").split("|").map(x=>x.trim());
+      o.push("<table>"+rows.filter(r=>!/^\s*\|[\s:|-]+\|\s*$/.test(r)).map((r,k)=>"<tr>"+cells(r).map(c=>(k?"<td>":"<th>")+inl(c)+(k?"</td>":"</th>")).join("")+"</tr>").join("")+"</table>")}
+    else if(LI.test(l)){const ord=/^\s*\d+\./.test(l),it=[];while(i<Ls.length&&LI.test(Ls[i])){it.push(Ls[i].replace(LI,""));i++}
+      o.push((ord?"<ol>":"<ul>")+it.map(x=>"<li>"+inl(x)+"</li>").join("")+(ord?"</ol>":"</ul>"))}
+    else if(/^>\s?/.test(l)){const q=[];while(i<Ls.length&&/^>\s?/.test(Ls[i])){q.push(Ls[i].replace(/^>\s?/,""));i++}o.push("<blockquote>"+q.map(inl).join("<br>")+"</blockquote>")}
+    else if(!l.trim())i++;
+    else{const p=[];while(i<Ls.length&&Ls[i].trim()&&!/^(#{1,6}\s|>|\u0000)/.test(Ls[i])&&!LI.test(Ls[i])&&!TB.test(Ls[i])&&!/^\s*---+\s*$/.test(Ls[i])){p.push(Ls[i]);i++}
+      if(!p.length){p.push(Ls[i]);i++}o.push("<p>"+p.map(inl).join("<br>")+"</p>")}
+  }
+  return o.join("")}
+const strip=x=>String(x).replace(/\*\*(.+?)\*\*/g,"$1").replace(/`([^`]+)`/g,"$1").replace(/\[([^\]]+)\]\([^)]+\)/g,"$1");
+const titleOf=(t,n)=>{const m=t.match(/^#{1,6}\s+(.*)/m);return strip(m?m[1]:(n||"output")).trim()||"output"};
+const fname=(t,n)=>titleOf(t,n).replace(/[\\\/:*?"<>|\s]+/g,"_").slice(0,40);
+function toPdf(txt,name){
+  const css='body{font:14px/1.7 "Noto Sans TC","Microsoft JhengHei",sans-serif;color:#111;margin:24px}h3{font-size:1.6em}h4{font-size:1.3em}h3,h4,h5,h6{margin:1em 0 .3em}pre{background:#f3f3f3;padding:8px;white-space:pre-wrap}code{background:#f3f3f3;padding:0 3px}table{border-collapse:collapse;margin:.5em 0}td,th{border:1px solid #bbb;padding:4px 8px}th{background:#eee}blockquote{border-left:3px solid #999;margin:.5em 0;padding-left:10px;color:#555}hr{border:0;border-top:1px solid #ccc}';
+  const f=document.createElement("iframe");f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0";document.body.append(f);
+  f.srcdoc='<!doctype html><meta charset="utf-8"><title>'+esc(titleOf(txt,name))+"</title><style>"+css+"</style>"+md(txt);
+  f.onload=()=>setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),60000)},250);
+  setStat("請在列印視窗的「目的地」選擇「另存為 PDF」");
+}
+let pptxP=null;
+function loadPptx(){
+  if(window.PptxGenJS)return Promise.resolve();if(pptxP)return pptxP;
+  const urls=["https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js","https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"];
+  pptxP=(async()=>{for(const u of urls){try{await new Promise((ok,no)=>{const e=document.createElement("script");e.src=u;e.onload=ok;e.onerror=no;document.head.append(e)});if(window.PptxGenJS)return}catch(e){}}throw new Error("無法載入 PPTX 產生器（pptxgenjs），請確認網路連線")})();
+  pptxP.catch(()=>pptxP=null);return pptxP}
+function mdSlides(txt){
+  txt=txt.replace(/```[^\n]*\n([\s\S]*?)```/g,(_,c)=>c);
+  const parts=/^\s*---+\s*$/m.test(txt)?txt.split(/^\s*---+\s*$/m):txt.split(/^(?=#{1,2}\s)/m);
+  return parts.map(c=>c.trim()).filter(Boolean).map(c=>{
+    let title="";const items=[],tbl=[];
+    for(const raw of c.split("\n")){const l=raw.trimEnd();if(!l.trim())continue;let m;
+      if(m=l.match(/^#{1,6}\s+(.*)/)){if(!title)title=m[1];else items.push({t:m[1],head:true});continue}
+      if(/^\s*\|.*\|\s*$/.test(l)){if(!/^\s*\|[\s:|-]+\|\s*$/.test(l))tbl.push(l.trim().replace(/^\||\|$/g,"").split("|").map(x=>x.trim()));continue}
+      if(m=l.match(/^(\s*)([-*]|\d+\.)\s+(.*)/)){items.push({t:m[3],bul:true,lv:Math.min(2,Math.floor(m[1].length/2))});continue}
+      items.push({t:l.replace(/^>\s?/,"").trim()})}
+    return{title,items,tbl}})}
+async function toPptx(txt,name){
+  await loadPptx();
+  const slides=mdSlides(txt);if(!slides.length)throw new Error("沒有可轉換的內容");
+  const p=new PptxGenJS();p.layout="LAYOUT_16x9";p.title=titleOf(txt,name);
+  const F="標楷體",INK="17211F",AC="0F6B5C";
+  slides.forEach((sl,idx)=>{
+    const chunks=[];for(let k=0;k<Math.max(1,sl.items.length);k+=7)chunks.push(sl.items.slice(k,k+7));
+    chunks.forEach((its,ci)=>{
+      const s=p.addSlide();s.background={color:"FFFFFF"};
+      s.addShape(p.ShapeType.rect,{x:0,y:0,w:0.18,h:5.625,fill:{color:AC}});
+      const title=(sl.title||p.title)+(ci?"（續）":"");
+      if(idx===0&&!ci&&!sl.items.some(x=>x.bul)&&!sl.tbl.length){
+        s.addText(title,{x:0.8,y:1.6,w:8.4,h:1.4,fontFace:F,fontSize:36,bold:true,color:AC,fit:"shrink"});
+        if(its.length)s.addText(its.map(x=>strip(x.t)).join("\n"),{x:0.8,y:3.1,w:8.4,h:1.6,fontFace:F,fontSize:18,color:"5D6B67",valign:"top",fit:"shrink"});
+        return}
+      s.addText(title,{x:0.5,y:0.3,w:9,h:0.9,fontFace:F,fontSize:28,bold:true,color:AC,fit:"shrink"});
+      const hasT=sl.tbl.length&&!ci;
+      if(its.length)s.addText(its.map(x=>{const o={breakLine:true,fontSize:its.length>5?16:18,color:INK,fontFace:F,bold:!!x.head};if(x.bul){o.bullet={indent:18};o.indentLevel=x.lv||0}return{text:strip(x.t),options:o}}),{x:0.5,y:1.3,w:9,h:hasT?1.9:3.8,valign:"top",fit:"shrink"});
+      if(hasT)s.addTable(sl.tbl.map((r,ri)=>r.map(c=>{const o={bold:ri===0,fontFace:F,fontSize:13,color:INK};if(ri===0)o.fill={color:"E3EFE9"};return{text:strip(c),options:o}})),{x:0.5,y:its.length?3.3:1.4,w:9,border:{type:"solid",color:"D6DDDB",pt:1}});
+    })});
+  await p.writeFile({fileName:fname(txt,name)+".pptx"});
+}
+function dl(txt,name,type){const a=document.createElement("a");const u=URL.createObjectURL(new Blob([txt],{type:type||"text/markdown"}));a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)}
+function dlRow(txt,name){
+  name=String(name||"").split(" · ")[0];
+  const r=document.createElement("div");r.className="row dls";
+  const mk=(t,fn)=>{const b=document.createElement("button");b.className="cp";b.textContent=t;b.onclick=async()=>{b.disabled=true;b.textContent="處理中…";try{await fn()}catch(e){toast(e.message||String(e))}b.disabled=false;b.textContent=t};r.append(b)};
+  mk("複製",async()=>{try{await navigator.clipboard.writeText(txt);toast("已複製")}catch(e){toast("此瀏覽器不允許複製")}});
+  mk("下載 MD",async()=>dl(txt,fname(txt,name)+".md"));
+  mk("下載 PPTX",()=>toPptx(txt,name));
+  mk("下載 PDF",async()=>toPdf(txt,name));
+  return r}
+function finalCard(txt){if(!txt)return;const d=L("h","","最終成果（可下載）");d.append(dlRow(txt,"最終成果"))}
+
+/* ---------- 進度便利貼 ---------- */
+let chipSt=[],tick=null,t0s=0,statTxt="",stepSec=[];
+const ST={wait:"待處理",run:"執行中",ok:"完成",bad:"退回修改",skip:"略過",err:"中斷"};
+function progDraw(f){
+  f=f||S.flows[S.cf];const pr=$("#prog");
+  if(!f||!f.steps.length){pr.hidden=true;return}
+  pr.hidden=false;
+  const groups=[];f.steps.forEach((st,j)=>{if(j>0&&st.par&&st.type==="work")groups[groups.length-1].push(j);else groups.push([j])});
+  const note=j=>{
+    const st=f.steps[j],r=S.roles.find(x=>x.id===st.role),k=chipSt[j]||"wait",ri=Math.max(0,S.roles.indexOf(r));
+    const fl=[st.type==="review"?"審核":"",st.par?"並行":"",st.gate?"🔒需核准":""].filter(Boolean).join("・");
+    const extra=st.type==="review"?"未通過會退回（最多 "+(f.maxLoops||0)+" 次）":"";
+    return `<div class="note c${ri%6} ${k}" data-j="${j}" tabindex="0" role="button" style="--rot:${j%2?1.2:-1.2}deg"><b>${j+1}. ${esc(r?r.name:"（角色已刪除）")}</b><span class="tk">${esc(st.task||"（依職責處理）")}</span><small>AI：${esc(r?llmOf(r).name:"?")}${fl?"・"+fl:""}</small>${extra?"<small>"+extra+"</small>":""}${stepSec[j]?"<small>耗時 "+stepSec[j]+" 秒</small>":""}${k!=="wait"?`<span class="stamp">${ST[k]}</span>`:""}</div>`};
+  $("#chips").innerHTML=groups.map(g=>`<div class="grp">${g.map(note).join("")}</div>`).join('<span class="arr">➜</span>');
+  const done=chipSt.filter(x=>x==="ok"||x==="skip").length;
+  $("#pfill").style.width=(f.steps.length?done/f.steps.length*100:0)+"%";
+  const e=$("#chips .run");if(e)e.scrollIntoView({inline:"center",block:"nearest"})}
+const progInit=(f,start)=>{stepSec=[];chipSt=f.steps.map((_,j)=>j<start?"skip":"wait");$("#prog").hidden=false;progDraw(f)};
+const setSt=(j,v)=>{chipSt[j]=v;progDraw()};
+function drawStat(){$("#stat").textContent=(busy?"⏱ "+Math.floor((Date.now()-t0s)/1000)+" 秒　":"")+statTxt+(RUN.tools?"　工具呼叫 "+RUN.tools+" 次":"")}
+function setStat(t){statTxt=t;drawStat()}
+
+/* ---------- 紀錄 ---------- */
+const log=$("#log");
+const scroller=()=>isMobile()?document.scrollingElement:$(".panes");
+function stick(fn){const sc=scroller(),near=sc.scrollHeight-sc.scrollTop-sc.clientHeight<280;fn();if(near&&activeTab==="run")sc.scrollTop=sc.scrollHeight}
+function L(cls,txt,who){
+  const d=document.createElement("div");d.className="m "+cls+(cls==="a"?" md":"");
+  if(who){const b=document.createElement("span");b.className="who";b.textContent=who;d.append(b)}
+  if(cls==="a"){const c=document.createElement("div");c.className="body";c.innerHTML=md(txt);d.append(c,dlRow(txt,who))}else d.append(document.createTextNode(txt));
+  stick(()=>log.append(d));logs.push((who?"### "+who+"\n":"")+txt);return d}
+function T(role,name,args,out){
+  const d=document.createElement("details");d.className="t";const s=document.createElement("summary");s.textContent=role.name+" · "+(TN[name]||name)+" "+(args.path||args.query||"");
+  const p=document.createElement("pre");p.textContent=out;d.append(s,p);stick(()=>log.append(d));logs.push("- 工具 "+role.name+" "+name+" "+(args.path||args.query||""))}
+$("#dl").onclick=()=>dl(logs.join("\n\n"),"run-log.md");
+const HK="xlx3h",getH=()=>{try{return JSON.parse(localStorage.getItem(HK)||"[]")}catch(e){return[]}};
+function fillHist(){$("#hist").innerHTML='<option value="">歷史紀錄（選擇即下載）</option>'+getH().map((x,i)=>`<option value="${i}">${esc(x.t)} · ${esc(x.flow)}</option>`).join("")}
+function pushHist(flow,goal){try{const h=getH();h.unshift({t:new Date().toLocaleString(),flow,goal:goal.slice(0,30),md:logs.join("\n\n").slice(0,100000)});localStorage.setItem(HK,JSON.stringify(h.slice(0,12)))}catch(e){}fillHist()}
+$("#hist").onchange=e=>{const x=getH()[e.target.value];if(x)dl(x.md,"run-"+x.t.replace(/[^\d]/g,"")+".md");e.target.value=""};
+function fillFrom(){const f=S.flows[S.cf];$("#from").innerHTML=f?f.steps.map((st,j)=>{const r=S.roles.find(x=>x.id===st.role);return `<option value="${j}">從第 ${j+1} 步開始（${esc(r?r.name:"?")}）</option>`}).join(""):""}
+
+/* ---------- LLM 轉接 ---------- */
+async function post(url,headers,body){
+  for(let k=0;;k++){
+    const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",...headers},body:JSON.stringify(body),signal:ctl.signal});
+    const t=await r.text();if(r.ok)return JSON.parse(t);
+    if((r.status===429||r.status>=500)&&k<2){await new Promise(ok=>setTimeout(ok,1500*(k+1)));continue}
+    throw new Error("HTTP "+r.status+"："+t.slice(0,300));
+  }}
+function loadPuter(){return window.puter?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement("script");s.src="https://js.puter.com/v2/";s.onload=ok;s.onerror=()=>no(new Error("無法載入 puter.js，請確認網路連線"));document.head.append(s)})}
+async function promptChat(c,h,tools,sys){
+  if(c.prov==="puter")await loadPuter();
+  let s=sys;
+  if(tools.length)s+="\n\n你可以呼叫工具。需要時只輸出下列格式的區塊（可多個），輸出後立刻停止，等待結果：\n```tool\n{\"name\":\"工具名\",\"args\":{\"參數\":\"值\"}}\n```\n可用工具：\n"+tools.map(t=>"- "+t.name+"（"+t.description+"）參數："+Object.keys(t.props).join("、")).join("\n");
+  const msgs=[{role:"system",content:s}];
+  for(const m of h){
+    if(m.r==="u")msgs.push({role:"user",content:m.t});
+    else if(m.r==="a")msgs.push({role:"assistant",content:(m.t||"")+(m.calls||[]).map(x=>"\n```tool\n"+JSON.stringify({name:x.name,args:x.args})+"\n```").join("")});
+    else msgs.push({role:"user",content:"【工具結果】\n"+m.results.map(r=>r.name+"：\n"+r.out).join("\n---\n")});
+  }
+  let t;
+  if(c.prov==="puter"){
+    const r=await puter.ai.chat(msgs,{model:c.model});
+    if(ctl&&ctl.signal.aborted)throw abortErr();
+    const c0=r&&r.message?r.message.content:r;
+    t=typeof c0==="string"?c0:Array.isArray(c0)?c0.map(x=>x.text||"").join(""):String(r);
+  }else{
+    const base=c.base.replace(/\/+$/,"");
+    if(c.prov==="anthropic"){
+      const j=await post(base+"/v1/messages",{"x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},{model:c.model,max_tokens:4096,system:s,messages:msgs.slice(1)});
+      t=j.content.filter(x=>x.type==="text").map(x=>x.text).join("\n");
+    }else{
+      const j=await post(base+"/chat/completions",c.key?{Authorization:"Bearer "+c.key}:{},{model:c.model,messages:msgs});
+      t=j.choices[0].message.content||"";
+    }
+  }
+  const calls=[];
+  t=t.replace(/```tool\s*([\s\S]*?)```/g,(_,j)=>{try{const o=JSON.parse(j);if(o.name)calls.push({id:uid(),name:o.name,args:o.args||{}})}catch(e){}return""}).trim();
+  return{t,calls};
+}
+async function llm(c,h,tools,sys){
+  if(c.prov==="demo")return demoLlm(c,h,tools,sys);
+  if(c.prov==="puter"||(tools.length&&c.tm==="prompt"))return promptChat(c,h,tools,sys);
+  try{return await nativeLlm(c,h,tools,sys)}
+  catch(e){
+    if(tools.length&&c.tm!=="native"&&/does not support tool|not support tool|tools? (is |are )?not supported|不支援/i.test(e.message)){
+      c.tm="prompt";save();L("s","「"+c.name+"」的模型不支援原生工具呼叫，已自動改用提示詞模式（已記住，可在 AI 設定中修改）。");
+      return promptChat(c,h,tools,sys);
+    }
+    throw e;
+  }
+}
+async function nativeLlm(c,h,tools,sys){
+  const base=c.base.replace(/\/+$/,"");
+  if(c.prov==="anthropic"){
+    const msgs=h.map(m=>m.r==="u"?{role:"user",content:m.t}:m.r==="a"?{role:"assistant",content:[...(m.t?[{type:"text",text:m.t}]:[]),...(m.calls||[]).map(x=>({type:"tool_use",id:x.id,name:x.name,input:x.args}))]}:{role:"user",content:m.results.map(r=>({type:"tool_result",tool_use_id:r.id,content:r.out}))});
+    const body={model:c.model,max_tokens:4096,system:sys,messages:msgs};
+    if(tools.length)body.tools=tools.map(t=>({name:t.name,description:t.description,input_schema:{type:"object",properties:t.props,required:t.req}}));
+    const j=await post(base+"/v1/messages",{"x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body);
+    return{t:j.content.filter(x=>x.type==="text").map(x=>x.text).join("\n"),calls:j.content.filter(x=>x.type==="tool_use").map(x=>({id:x.id,name:x.name,args:x.input||{}}))};
+  }
+  const msgs=[{role:"system",content:sys}];
+  for(const m of h){if(m.r==="u")msgs.push({role:"user",content:m.t});else if(m.r==="a"){const o={role:"assistant",content:m.t||null};if(m.calls&&m.calls.length)o.tool_calls=m.calls.map(x=>({id:x.id,type:"function",function:{name:x.name,arguments:JSON.stringify(x.args)}}));msgs.push(o)}else m.results.forEach(r=>msgs.push({role:"tool",tool_call_id:r.id,content:r.out}))}
+  const body={model:c.model,messages:msgs};
+  if(tools.length)body.tools=tools.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:{type:"object",properties:t.props,required:t.req}}}));
+  const j=await post(base+"/chat/completions",c.key?{Authorization:"Bearer "+c.key}:{},body);
+  const m=j.choices[0].message;
+  return{t:m.content||"",calls:(m.tool_calls||[]).map(x=>{let g={};try{g=JSON.parse(x.function.arguments||"{}")}catch(e){}return{id:x.id,name:x.function.name,args:g}})};
+}
+
+/* ---------- 離線示範「AI」:不連網，依角色可用工具腳本化地回應 ---------- */
+async function demoLlm(c,h,tools,sys){
+  await sleep(rnd(650,1250));
+  const names=tools.map(t=>t.name),msg0=(h[0]&&h[0].t)||"",calls=[],res=[];
+  h.forEach(m=>{if(m.r==="a")(m.calls||[]).forEach(x=>calls.push(x));else if(m.r==="t")m.results.forEach(x=>res.push(x))});
+  const did=n=>calls.filter(x=>x.name===n).length,one=(name,args,say)=>({t:say||"",calls:[{id:uid(),name,args}]});
+  const goal=(msg0.match(/【總目標】\n([\s\S]*?)\n\n【/)||[])[1]||"";
+  const prev=((msg0.split("【上一步輸出】\n")[1]||"").split("\n\n請審核")[0].split("\n\n【")[0]||"").trim();
+  const fixing=/【審核意見/.test(msg0);
+  if(/第一行只能寫 PASS 或 FAIL/.test(sys)){
+    const f=S.flows[S.cf],revised=/## 修訂說明/.test(prev),canFail=f&&f.maxLoops>0;
+    return !revised&&canFail
+      ?{t:"FAIL\n- 部分重點沒有標示來源檔名。\n- 缺少「待辦事項」小節。\n\n（離線示範模式的審稿員第一次會故意退回，讓你看到「退回修改」流程。）",calls:[]}
+      :{t:"PASS\n結構清楚、重點皆附來源。（離線示範模式自動審核）",calls:[]};
+  }
+  const listed=res.find(r=>r.name==="list_dir"),files=listed?listed.out.split("\n").filter(x=>x.startsWith("[檔案] ")).map(x=>x.slice(5)):[];
+  if(names.includes("list_dir")&&!did("list_dir"))return one("list_dir",{path:""},"先看看資料夾裡有哪些檔案。");
+  if(names.includes("read_file")&&did("read_file")<Math.min(2,files.length))return one("read_file",{path:files[did("read_file")]},"讀取 "+files[did("read_file")]+"。");
+  if(names.includes("search")&&names.includes("read_file")&&files.length&&!did("search"))return one("search",{query:"決議"},"搜尋關鍵字「決議」。");
+  const reads=res.filter(r=>r.name==="read_file"&&!/^錯誤/.test(r.out));
+  const bullets=reads.map(r=>r.out.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,5).map(x=>"- "+x.replace(/^[-*#>\s]+/,"")+"（來源："+r.args.path+"）").join("\n")).join("\n");
+  const intro="> 離線示範模式產生的內容，並非真實 AI 回覆。";
+  let body;
+  if(fixing)body=prev+"\n\n## 待辦事項\n- 持續追蹤各項決議（示範）\n- 確認負責人與期限（示範）\n\n## 修訂說明\n已依審核意見補上來源標示與待辦事項。\n";
+  else if(bullets)body="# 資料重點\n\n"+intro+"\n\n## 重點整理\n"+bullets+"\n";
+  else if(/^#\s/m.test(prev)&&/離線示範/.test(prev))body=prev;
+  else if(prev&&prev!=="（無）"&&!/^（從第/.test(prev))body="# 文件草稿\n\n"+intro+"\n\n## 總目標\n"+(goal||"（未提供）")+"\n\n## 內容\n"+prev.split("\n").filter(l=>!/^>\s*離線示範/.test(l)&&!/^# /.test(l)).map(l=>l.replace(/^(#{2,5}) /,"#$1 ")).join("\n").trim()+"\n";
+  else body="# 示範輸出\n\n"+intro+"\n\n針對目標「"+(goal||"（未提供）")+"」的示範回覆。\n";
+  if(names.includes("write_file")&&!did("write_file")){
+    const path=(sys.match(/([\w\-]+\.(?:md|txt|csv|json|html))/)||[])[1]||"output.md";
+    return one("write_file",{path,content:body},"整理完成，寫入 "+path+"。");
+  }
+  return{t:body,calls:[]};
+}
+
+/* ---------- 單一角色執行(每個事件同步到辦公室) ---------- */
+async function agent(role,msg,extraSys,tag){
+  const cfg=llmOf(role),tools=TOOLS.filter(t=>role.tools.includes(t.name)),base=parts(role.dir);
+  await V.ensureDir(base);
+  const sys=role.sys+(extraSys||"")+"\n【輸出格式】一律使用 Markdown。你無法直接產生 .pptx 或 .pdf 檔，系統會把你的 Markdown 轉成下載檔。若任務是製作簡報，請用單獨一行 --- 分隔每張投影片，每張以「# 標題」開頭，接著 3 到 6 個「- 」條列重點；第一張為封面（只有標題與副標題）。"+"\n你的工作範圍是資料匣中的「"+(role.dir||"根目錄")+"」，路徑一律使用相對於此範圍的路徑。使用繁體中文。";
+  const h=[{r:"u",t:msg}],cx={role};let last="";
+  for(let i=0;i<(role.max||8);i++){
+    if(ctl.signal.aborted)throw abortErr();
+    setStat((tag||"")+" · "+role.name+" 第 "+(i+1)+" 輪：等待 AI 回應…");ofcSet(role.id,"thinking","第 "+(i+1)+" 輪：等待 AI 回應…");
+    const r=await llm(cfg,h,tools,sys);h.push({r:"a",t:r.t,calls:r.calls});if(r.t)last=r.t;
+    if(!r.calls.length)return last;
+    const results=[];
+    for(const c of r.calls){
+      const label=(TN[c.name]||c.name)+" "+(c.args.path||c.args.query||"");
+      setStat((tag||"")+" · "+role.name+"：執行工具 "+c.name+" "+(c.args.path||""));ofcSet(role.id,READ.has(c.name)?"reading":"working",label);
+      const t0=Date.now();let out;
+      try{if(!role.tools.includes(c.name))throw new Error("此角色未被授權使用 "+c.name);out=String(await impl[c.name](base,c.args||{},cx))}catch(e){if(e&&e.name==="AbortError")throw e;out="錯誤："+(e.message||e)}
+      RUN.tools++;results.push({id:c.id,name:c.name,args:c.args,out});T(role,c.name,c.args||{},out);
+      const el=Date.now()-t0;if(el<600)await sleep(600-el);   // 讓動作在辦公室裡看得見
+    }
+    h.push({r:"t",results});
+  }
+  return last+"\n（已達此角色的工具輪數上限）";
+}
+
+/* ---------- 流程執行 ---------- */
+function ready(){const f=S.flows[S.cf],b=$("#run");b.disabled=busy||!wsReady()||!f||!f.steps.length;b.title=!wsReady()?"請先到「設定」選擇資料匣，或改用虛擬工作區":!f||!f.steps.length?"請先到「團隊」建立流程步驟":""}
+async function runFlow(){
+ const f=S.flows[S.cf],goal=$("#goal").value.trim();
+ if(!f||!f.steps.length||busy)return;
+ if(!goal){toast("請先輸入總目標");$("#goal").focus();return}
+ if(!wsReady()){toast("請先選擇資料匣，或改用虛擬工作區");return}
+ busy=true;ctl=new AbortController();RUN.tools=0;cancelPending();
+ $("#run").hidden=true;$("#stop").hidden=false;log.innerHTML="";switchTab("run");
+ const t0=Date.now(),stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
+ logs=["# 執行紀錄：「"+f.name+"」\n總目標："+goal];
+ let i=+$("#from").value||0,prev=i?"（從第 "+(i+1)+" 步開始，無前一步輸出）":"",work="",fb="",loops=0,lastWork=-1,prevRole=null,workRole=null,ok=false;
+ L("s","流程開始：「"+f.name+"」"+(i?"，從第 "+(i+1)+" 步起":""));progInit(f,i);t0s=Date.now();clearInterval(tick);tick=setInterval(drawStat,1000);setStat("準備中…");
+ const saveOut=async(n,role,out)=>{if(!S.saveRuns)return;try{await V.write(["_runs",stamp,"step"+n+"-"+role.name.replace(/[\\\/:*?"<>|\s]/g,"_")+".md"],out)}catch(e){}};
+ try{
+  while(i<f.steps.length){
+   const s0=f.steps[i],role0=S.roles.find(r=>r.id===s0.role);
+   if(!role0){L("e","第 "+(i+1)+" 步的角色已被刪除");break}
+   const grp=[i];
+   if(s0.type==="work")while(f.steps[grp[grp.length-1]+1]&&f.steps[grp[grp.length-1]+1].par&&f.steps[grp[grp.length-1]+1].type==="work")grp.push(grp[grp.length-1]+1);
+   if(s0.gate){const g=await gate("第 "+(i+1)+" 步前的人工核准",prev||"（尚無前一步輸出）",role0);if(g===null){L("s","已由使用者終止。");break}prev=g}
+   const one=async idx=>{
+    const st=f.steps[idx],role=S.roles.find(r=>r.id===st.role);
+    if(!role)throw new Error("第 "+(idx+1)+" 步的角色已被刪除");
+    let msg="【總目標】\n"+goal+"\n\n【本步驟任務】\n"+(st.task||"依職責處理")+"\n\n【上一步輸出】\n"+(prev||"（無）"),extra="";
+    if(st.type==="review"){extra="\n第一行只能寫 PASS 或 FAIL，之後才說明理由。";msg+="\n\n請審核「上一步輸出」。"}
+    else if(fb)msg+="\n\n【審核意見，請逐點修改】\n"+fb+"\n\n【你上一版的輸出】\n"+work;
+    L("s","第 "+(idx+1)+" 步 · "+role.name+(st.type==="review"?"（審核）":"")+" ｜AI："+llmOf(role).name+(grp.length>1?" ｜並行":""));
+    if(prevRole&&prevRole!==role.id)ofcHandoff(prevRole,role.id);
+    setSt(idx,"run");const t=Date.now(),out=await agent(role,msg,extra,"第 "+(idx+1)+" 步");
+    {const card=L("a",out,role.name+" · "+((Date.now()-t)/1000).toFixed(1)+" 秒");card.dataset.step=idx}stepSec[idx]=((Date.now()-t)/1000).toFixed(1);setSt(idx,"ok");
+    if(st.type!=="review")ofcEmote(role.id,"ok",3);
+    ofcSet(role.id,"idle","");
+    await saveOut(idx+1,role,out);
+    return out;
+   };
+   const outs=await Promise.all(grp.map(one));
+   if(s0.type==="review"){
+    const out=outs[0];
+    if(/^\s*PASS/i.test(out)){ofcEmote(role0.id,"ok",3);prev=work||prev;prevRole=workRole||role0.id;i++}
+    else if(loops<(f.maxLoops||0)&&lastWork>=0){loops++;fb=out;ofcEmote(role0.id,"ex",3.5);setSt(i,"bad");for(let j=lastWork;j<i;j++)setSt(j,"wait");L("s","審核未通過，退回第 "+(lastWork+1)+" 步（第 "+loops+"/"+f.maxLoops+" 次）");prev=work;prevRole=role0.id;i=lastWork}
+    else{ofcEmote(role0.id,"ex",3.5);L("e","審核未通過且已達退回上限，流程繼續往下。");prev=work||prev;prevRole=workRole||role0.id;i++}
+   }else{
+    work=outs.length>1?outs.map((o,k)=>"## "+S.roles.find(r=>r.id===f.steps[grp[k]].role).name+"\n"+o).join("\n\n"):outs[0];
+    prev=work;lastWork=i;fb="";workRole=prevRole=f.steps[grp[grp.length-1]].role;i=grp[grp.length-1]+1;
+   }
+  }
+  L("s","流程結束，共 "+((Date.now()-t0)/1000).toFixed(1)+" 秒。");finalCard(prev);ok=true;
+ }catch(e){
+  if(e.name==="AbortError")L("e","已停止。");
+  else{L("e","執行失敗："+e.message+"\n請檢查 API 網址、Key、模型，以及該服務是否允許瀏覽器直接連線。");O.agents.forEach(a=>{if(a.status!=="idle")ofcEmote(a.id,"ex",3.8)})}
+ }
+ cancelPending();ofcAllIdle();if(ok)ofcCelebrate(f.steps.map(s=>s.role));
+ pushHist(f.name,goal);if(activeTab==="set")renderSet();
+ clearInterval(tick);chipSt=chipSt.map(x=>x==="run"?"err":x);progDraw(f);busy=false;setStat("結束，共 "+Math.floor((Date.now()-t0s)/1000)+" 秒");$("#run").hidden=false;$("#stop").hidden=true;ready();
+}
+$("#run").onclick=runFlow;
+$("#stop").onclick=()=>{if(ctl)ctl.abort();cancelPending()};
+$("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#run").disabled&&!$("#run").hidden)runFlow()});
+
+/* ====================== UI:團隊 / 設定 ====================== */
+const openRoles=new Set();
+const fld=(p,label,val,type="text")=>`<label>${label}<input type="${type}" data-p="${p}" value="${esc(val)}"></label>`;
+const area=(p,label,val,rows=3)=>`<label>${label}<textarea rows="${rows}" data-p="${p}">${esc(val)}</textarea></label>`;
+const provSel=(p,v)=>`<label>服務類型<select data-p="${p}" data-prov="${p}"><option value="demo"${v=="demo"?" selected":""}>離線示範（不連網，模擬回應）</option><option value="puter"${v=="puter"?" selected":""}>Puter（puter.js，免填 Key）</option><option value="openai"${v=="openai"?" selected":""}>OpenAI 相容</option><option value="anthropic"${v=="anthropic"?" selected":""}>Anthropic</option><option value="ollama"${v=="ollama"?" selected":""}>Ollama（本機）</option></select></label>`;
+const tmSel=(p,v)=>`<label>工具呼叫方式<select data-p="${p}.tm"><option value="">自動（不支援時改用提示詞）</option><option value="native"${v=="native"?" selected":""}>原生 function calling</option><option value="prompt"${v=="prompt"?" selected":""}>提示詞模式（模型不支援 tools 時用）</option></select></label>`;
+const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="demo"?`<p class="mut">不連網、不需 Key，用腳本模擬 AI 的讀檔／寫檔／審稿，適合先看看流程與辦公室動畫。</p>`:(o.prov==="puter"?"":fld(p+".base","API 網址",o.base)+fld(p+".key","API Key",o.key,"password"))+fld(p+".model","模型名稱",o.model)+(o.prov==="puter"?"":tmSel(p,o.tm)));
+
+function renderTeam(){
+ const f=S.flows[S.cf],roleOpts=v=>S.roles.map(r=>`<option value="${r.id}"${r.id==v?" selected":""}>${esc(r.name)}</option>`).join("");
+ $("#teamBox").innerHTML=`
+ <div class="sec" id="sec-roles"><details open><summary>角色（${S.roles.length}）</summary>
+  <p class="mut">每位角色都是辦公室裡的一個像素角色；流程跑到它那一步時，它會回到座位開始工作。</p>
+  ${S.roles.map((r,i)=>`<details class="card" data-rid="${r.id}"${openRoles.has(r.id)?" open":""}><summary><canvas class="sav" width="24" height="26" data-av="${r.id}"></canvas>${esc(r.name)}</summary>
+   ${fld(`roles.${i}.name`,"角色名稱",r.name)}
+   ${area(`roles.${i}.sys`,"職責提示詞",r.sys,4)}
+   ${fld(`roles.${i}.dir`,"工作子目錄（空白＝整個工作區）",r.dir)}
+   <div class="row">${TOOLS.map(t=>`<label class="chk"><input type="checkbox" data-tool="${i}:${t.name}" ${r.tools.includes(t.name)?"checked":""}>${TN[t.name]}</label>`).join("")}</div>
+   ${fld(`roles.${i}.max`,"單步最多工具輪數",r.max,"number")}
+   <label>使用的 AI<select data-p="roles.${i}.llm" data-re="1"><option value="">跟隨預設（${esc(llmName(S.defLlm))}）</option>${llmOpts(r.llm)}</select></label>
+   <div class="row" style="margin-top:8px"><button class="sm" data-act="reroll" data-i="${i}">🎲 換造型</button><button class="sm bad" data-act="delrole" data-i="${i}">刪除角色</button></div></details>`).join("")}
+  <div class="row"><button data-act="addrole">新增空白角色</button><select data-act="tpl" aria-label="從範本新增"><option value="">從範本新增…</option>${TPL.map((t,i)=>`<option value="${i}">${t.name}</option>`).join("")}</select></div></details></div>
+ <div class="sec" id="sec-flows"><details open><summary>流程</summary>
+  <div class="row" style="margin-top:6px"><select data-act="pickflow" aria-label="選擇流程">${S.flows.map((x,i)=>`<option value="${i}"${i==S.cf?" selected":""}>${esc(x.name)}</option>`).join("")}</select><button data-act="addflow">新增</button></div>
+  ${f?`${fld(`flows.${S.cf}.name`,"流程名稱",f.name)}${fld(`flows.${S.cf}.maxLoops`,"審核不通過時最多退回次數",f.maxLoops,"number")}
+  ${f.steps.map((s,j)=>`<div class="card step"><div class="row"><select data-p="flows.${S.cf}.steps.${j}.role" aria-label="角色">${roleOpts(s.role)}</select>
+   <select data-re="1" data-p="flows.${S.cf}.steps.${j}.type" aria-label="類型"><option value="work"${s.type=="work"?" selected":""}>執行</option><option value="review"${s.type=="review"?" selected":""}>審核</option></select></div>
+   ${area(`flows.${S.cf}.steps.${j}.task`,"本步驟任務",s.task,2)}
+   <div class="row"><label class="chk"><input type="checkbox" data-p="flows.${S.cf}.steps.${j}.gate" ${s.gate?"checked":""}>執行前需我核准</label>${j>0&&s.type=="work"?`<label class="chk"><input type="checkbox" data-p="flows.${S.cf}.steps.${j}.par" ${s.par?"checked":""}>與上一步並行</label>`:""}</div>
+   <div class="row" style="margin-top:6px"><button class="sm" data-act="up" data-j="${j}">上移</button><button class="sm" data-act="dn" data-j="${j}">下移</button><button class="sm" data-act="rm" data-j="${j}">刪除</button></div></div>`).join("")}
+  <div class="row"><button data-act="addstep">新增步驟</button><button data-act="delflow">刪除流程</button></div>`:"<p>尚無流程。</p>"}
+ </details></div>`;
+ $$("#teamBox canvas[data-av]").forEach(c=>{const r=S.roles.find(x=>x.id===c.dataset.av);if(r&&r.pal)drawAvatar(c,r.pal)});
+}
+function renderSet(){
+ const L0=S.llms[S.cl],mem=S.wsKind==="mem",fsOk=!!window.showDirectoryPicker,names=Object.keys(MEM.files).sort();
+ const kb=n=>n>1024?(n/1024).toFixed(1)+" KB":n+" 字";
+ const memHtml=`<p class="mut">檔案存在這個瀏覽器裡，手機、平板、任何瀏覽器都能用。角色讀寫的檔案都在這裡，可隨時下載。</p>
+  <div class="row"><input type="text" id="upDir" value="inbox" aria-label="上傳到哪個資料夾" style="flex:0 0 36%"><button data-act="upload">⬆ 上傳文字檔</button></div>
+  <input type="file" id="upFile" multiple hidden accept="text/*,.md,.markdown,.txt,.csv,.json,.html,.xml,.yaml,.yml,.js,.ts,.py,.css,.log">
+  <ul class="files">${names.length?names.slice(0,80).map(p=>`<li><span>${esc(p)} <small>${kb(MEM.files[p].length)}</small></span><button class="sm" data-act="memdl" data-p="${esc(p)}">下載</button><button class="sm bad" data-act="memrm" data-p="${esc(p)}" aria-label="刪除 ${esc(p)}">✕</button></li>`).join("")+(names.length>80?`<li class="mut">…還有 ${names.length-80} 個檔案</li>`:""):`<li class="mut">（目前是空的，可上傳檔案或載入範例）</li>`}</ul>
+  <details><summary class="mut" style="cursor:pointer">＋ 直接新增文字檔</summary><input type="text" id="nfPath" placeholder="路徑，如 inbox/筆記.md" aria-label="新檔案路徑"><textarea id="nfText" rows="4" placeholder="內容" aria-label="新檔案內容" style="margin-top:6px"></textarea><button data-act="newfile" style="margin-top:6px">儲存檔案</button></details>
+  <div class="row" style="margin-top:8px"><button class="sm bad" data-act="memclear">清空虛擬工作區</button></div>`;
+ const fsHtml=`<p class="mut">讀寫你電腦上真實的資料夾（需 Chrome／Edge 電腦版，並直接開啟本檔案）。</p>
+  <button class="pri" data-act="pick" style="width:100%">選擇開放的資料匣</button><div class="folder ${fsRoot?"":"bad-t"}">${esc(fsMsg)}</div>`;
+ $("#setBox").innerHTML=`
+ <div class="sec" id="sec-ws"><details open><summary>工作區</summary>
+  <div class="seg"><button data-act="wsmem" class="${mem?"on":""}">虛擬工作區</button><button data-act="wsfs" class="${mem?"":"on"}" ${fsOk?"":'disabled title="此瀏覽器不支援（需 Chrome／Edge 電腦版）"'}>本機資料匣</button></div>
+  ${mem?memHtml:fsHtml}
+  <label class="chk"><input type="checkbox" data-p="autoWrite" ${S.autoWrite?"checked":""}> 寫檔時不再詢問（刪檔仍會詢問）</label>
+  <label class="chk"><input type="checkbox" data-p="saveRuns" ${S.saveRuns?"checked":""}> 將每步輸出存入 _runs/ 資料夾</label></details></div>
+ <div class="sec" id="sec-ai"><details open><summary>AI 設定（${S.llms.length}）</summary>
+  <label>預設使用<select data-p="defLlm" data-re="1">${llmOpts(S.defLlm)}</select></label>
+  <div class="row" style="margin-top:8px"><select data-act="pickllm" aria-label="選擇要編輯的 AI">${S.llms.map((l,i)=>`<option value="${i}"${i==S.cl?" selected":""}>${esc(l.name)}</option>`).join("")}</select><button data-act="addllm">新增</button></div>
+  ${L0?`${fld(`llms.${S.cl}.name`,"AI 名稱",L0.name)}${llmFields(`llms.${S.cl}`,L0)}<div class="row" style="margin-top:8px"><button data-act="testllm">測試連線</button><button data-act="delllm">刪除此 AI</button></div>`:""}</details></div>
+ <div class="sec"><details open><summary>辦公室選項</summary>
+  <label class="chk"><input type="checkbox" data-ui="names" ${S.ui.names?"checked":""}> 顯示角色名稱與狀態</label>
+  <label class="chk"><input type="checkbox" data-ui="pet" ${S.ui.pet?"checked":""}> 辦公室貓咪</label>
+  <label class="chk"><input type="checkbox" data-ui="sound" ${S.ui.sound?"checked":""}> 音效</label></details></div>
+ <div class="sec"><details><summary>範例、匯出入與其他</summary><div class="row" style="margin-top:6px">
+  <button data-act="sample">載入範例</button><button data-act="export">匯出 JSON</button><button data-act="import">匯入 JSON</button><button data-act="help">使用說明</button></div>
+  <p class="mut">匯出會包含角色、流程與辦公室佈局，但不含 API Key。</p>
+  <div class="row"><button class="sm bad" data-act="wipe">清除所有資料並重置</button></div></details></div>
+ <p class="about">靈感來自 <a href="https://github.com/pixel-agents-hq/pixel-agents" target="_blank" rel="noopener" style="color:var(--acc2)">Pixel Agents</a>（MIT）。角色與家具皆由程式即時繪製。</p>`;
+}
+function renderAll(){renderTeam();renderSet();fillFrom();progDraw();ready();ofcSync();renderDetail(true)}
+
+/* ---------- 範例 ---------- */
+function seedInbox(){
+ if(S.wsKind!=="mem"||Object.keys(MEM.files).some(k=>k.startsWith("inbox/")))return;
+ MEM.files["inbox/會議記錄-週一.md"]="# 產品週會（週一）\n- 參與者：小美、阿德、Ivy\n- 決議：下週三前完成登入流程改版\n- 決議：行動版首頁載入時間目標縮短到 2 秒內\n- 待辦：阿德整理使用者回饋清單（週五前）\n- 討論：是否導入深色模式，暫緩到下季評估\n";
+ MEM.files["inbox/會議記錄-週四.md"]="# 技術同步（週四）\n- 參與者：阿德、Ivy、Kevin\n- 決議：API 文件改用同一份範本維護\n- 待辦：Kevin 補齊錯誤碼說明（下週二前）\n- 風險：第三方金流測試環境不穩，可能影響上線時程\n- 決議：每週五固定做一次回歸測試\n";
+ memSave();
+}
+function sample(){
+ const r=(name,sys,tools,dir)=>({id:uid(),name,sys,tools,dir,llm:"",max:8,pal:makePal()});
+ const a=r("收集員","你負責閱讀資料並條列重點，每點附上來源檔名。只陳述資料中有的內容，不做推測。",["list_dir","read_file","search"],"inbox");
+ const b=r("撰稿員","依據提供的重點撰寫結構完整的文件，寫入檔案 draft.md，並在回覆中貼出全文。若收到審核意見，逐點修改。",["read_file","write_file"],"output");
+ const c=r("審稿員","你是嚴格的審稿員，檢查每項論述是否有來源、結構是否清楚。第一行只能寫 PASS 或 FAIL，之後說明理由與具體修改建議。",["read_file"],"output");
+ const d=r("歸檔員","把最終稿存成 final.md，並回報完成的檔案路徑。",["read_file","write_file"],"output");
+ S.roles.push(a,b,c,d);
+ S.flows.push({id:uid(),name:"資料整理 → 寫作 → 審稿",maxLoops:2,steps:[
+  {role:a.id,type:"work",task:"讀取範圍內所有檔案，整理出重點清單。",gate:false},
+  {role:b.id,type:"work",task:"根據重點撰寫完整文件。",gate:false},
+  {role:c.id,type:"review",task:"審核上一步的文件是否合格。",gate:false},
+  {role:d.id,type:"work",task:"將最終稿歸檔。",gate:true}]});
+ S.cf=S.flows.length-1;seedInbox();save();
+}
+
+/* ---------- 設定頁事件 ---------- */
+const memName=p=>p.split("/").pop();
+async function addFiles(files,dir){
+ let n=0;try{dir=parts(dir).join("/")}catch(e){toast("資料夾路徑不可包含 ..");return}
+ for(const f of files){
+  if(f.size>2e6){toast(f.name+" 太大（上限 2 MB）");continue}
+  let t;try{t=await f.text()}catch(e){continue}
+  if(t.includes("\0")){toast(f.name+" 不是文字檔，已略過");continue}
+  MEM.files[(dir?dir+"/":"")+f.name]=t;n++;
+ }
+ memSave();toast(n?"已加入 "+n+" 個檔案":"沒有加入任何檔案");renderSet();
+}
+async function pickFolder(){
+ if(!window.showDirectoryPicker){toast("此瀏覽器不支援（請用 Chrome 或 Edge 電腦版）");return false}
+ try{fsRoot=await showDirectoryPicker({mode:"readwrite"});await hPut(fsRoot);S.wsKind="fs";fsMsg="目前開放：/"+fsRoot.name;return true}catch(x){return false}
+}
+async function sideClick(e){
+ const b=e.target.closest("button");if(!b||!b.dataset.act)return;const a=b.dataset.act,f=S.flows[S.cf];
+ if(a==="wsmem")S.wsKind="mem";
+ else if(a==="wsfs"){
+  if(fsRoot){try{if(await fsRoot.queryPermission({mode:"readwrite"})!=="granted"&&await fsRoot.requestPermission({mode:"readwrite"})!=="granted"){fsRoot=null;fsMsg="需要重新授權，請再選擇一次資料匣。"}}catch(x){}S.wsKind="fs"}
+  else if(!await pickFolder())return;
+ }
+ else if(a==="pick"){if(!await pickFolder())return}
+ else if(a==="upload"){$("#upFile").click();return}
+ else if(a==="memdl"){dl(MEM.files[b.dataset.p]||"",memName(b.dataset.p),"text/plain");return}
+ else if(a==="memrm"){delete MEM.files[b.dataset.p];memSave()}
+ else if(a==="memclear"){if(!confirm("清空虛擬工作區內所有檔案？"))return;MEM.files={};MEM.dirs=new Set();memSave()}
+ else if(a==="newfile"){
+  let p;try{p=parts($("#nfPath").value).join("/")}catch(x){toast("路徑不可包含 ..");return}
+  if(!p){toast("請輸入檔案路徑");return}MEM.files[p]=$("#nfText").value;memSave();toast("已儲存 "+p)}
+ else if(a==="addrole"){S.roles.push({id:uid(),name:"新角色",sys:"",tools:["list_dir","read_file"],dir:"",llm:"",max:8,pal:makePal()});toast(S.roles.length>O.seats.filter(s=>s.kind==="desk").length?"工作桌不夠了，到「佈局」多放幾張桌子":"新角色加入辦公室")}
+ else if(a==="reroll"){S.roles[+b.dataset.i].pal=makePal();ofcSync()}
+ else if(a==="addllm"){S.llms.push({id:uid(),name:"新 AI",prov:"openai",base:PRESET.openai[0],key:"",model:PRESET.openai[1]});S.cl=S.llms.length-1}
+ else if(a==="delllm"){if(S.llms.length<2){toast("至少保留一個 AI");return}const l=S.llms[S.cl];S.llms.splice(S.cl,1);S.cl=0;S.roles.forEach(r=>{if(r.llm===l.id)r.llm=""});if(S.defLlm===l.id)S.defLlm=S.llms[0].id}
+ else if(a==="testllm"){
+  b.disabled=true;b.textContent="測試中…";const old=ctl;ctl=new AbortController();
+  try{const r=await llm(S.llms[S.cl],[{r:"u",t:"請只回覆 OK"}],[],"你是測試助理");toast("連線成功："+String(r.t).replace(/\s+/g," ").slice(0,60))}catch(x){toast("連線失敗："+x.message)}
+  ctl=old;renderSet();return}
+ else if(a==="delrole"){const r=S.roles[+b.dataset.i];S.roles.splice(+b.dataset.i,1);openRoles.delete(r.id);S.flows.forEach(x=>x.steps=x.steps.filter(s=>s.role!==r.id))}
+ else if(a==="addflow"){S.flows.push({id:uid(),name:"新流程",maxLoops:2,steps:[]});S.cf=S.flows.length-1}
+ else if(a==="delflow"){if(!confirm("刪除此流程？"))return;S.flows.splice(S.cf,1);S.cf=0}
+ else if(a==="addstep"){if(!S.roles.length){toast("請先新增角色");return}f.steps.push({role:S.roles[0].id,type:"work",task:"",gate:false})}
+ else if(a==="rm")f.steps.splice(+b.dataset.j,1);
+ else if(a==="up"||a==="dn"){const j=+b.dataset.j,k=a==="up"?j-1:j+1;if(k<0||k>=f.steps.length)return;[f.steps[j],f.steps[k]]=[f.steps[k],f.steps[j]]}
+ else if(a==="sample"){if(S.roles.length&&!confirm("範例會新增 4 個角色與 1 條流程，繼續？"))return;sample();toast("已載入範例")}
+ else if(a==="help"){openHelp();return}
+ else if(a==="wipe"){
+  if(!confirm("清除所有資料（設定、角色、流程、虛擬工作區、辦公室佈局）並重置？"))return;
+  try{localStorage.removeItem("xlx3");localStorage.removeItem("xlx3h");localStorage.removeItem(HELP_KEY)}catch(x){}
+  await hPut(null,"root");await hPut({files:{},dirs:[]},"mem");location.reload();return}
+ else if(a==="export"){
+  const c=JSON.parse(JSON.stringify({v:4,llms:S.llms,defLlm:S.defLlm,roles:S.roles,flows:S.flows,autoWrite:S.autoWrite,layout:O.layout}));c.llms.forEach(l=>l.key="");
+  dl(JSON.stringify(c,null,2),"workstream.json","application/json");return
+ }else if(a==="import"){
+  const i=document.createElement("input");i.type="file";i.accept=".json";
+  i.onchange=async()=>{try{
+   const x=JSON.parse(await i.files[0].text());if(!x.roles||!x.flows)throw 0;
+   const old=S.llms,ui=S.ui,ws=S.wsKind;S={...S,...x,cf:0,cl:0};S.ui=ui;S.wsKind=ws;
+   if(!Array.isArray(S.llms)||!S.llms.length)S.llms=old;
+   S.llms.forEach(l=>{const o=old.find(y=>y.id===l.id);if(o&&!l.key)l.key=o.key});
+   if(!S.llms.some(l=>l.prov==="demo"))S.llms.push({...DEMO_LLM});
+   if(!S.llms.find(l=>l.id===S.defLlm))S.defLlm=S.llms[0].id;
+   const lay=x.layout&&sanitizeLayout(x.layout);if(lay){O.layout=lay;O.layoutDirty=true}
+   S.layout=O.layout;save();renderAll();toast("已匯入");
+  }catch(err){toast("檔案格式不正確")}};
+  i.click();return
+ }
+ save();renderAll();
+}
+function sideInput(e){
+ const t=e.target;
+ if(t.dataset.tool){const [i,n]=t.dataset.tool.split(":");const a=S.roles[i].tools;S.roles[i].tools=t.checked?[...new Set([...a,n])]:a.filter(x=>x!==n);save();return}
+ if(t.dataset.ui){S.ui[t.dataset.ui]=t.checked;save();if(t.dataset.ui==="pet"&&t.checked&&!O.pets.length)addPet();if(t.dataset.ui==="sound")syncSound();return}
+ if(!t.dataset.p)return;
+ const v=t.type==="checkbox"?t.checked:t.type==="number"?Number(t.value):t.value;
+ setPath(t.dataset.p,v);
+ if(/^roles\.\d+\.name$/.test(t.dataset.p)){ofcSync();progDraw();fillFrom();renderDetail(true)}
+ if(t.dataset.prov){const base=t.dataset.prov.replace(/\.prov$/,"");const o=base.split(".").reduce((a,k)=>a[k],S);o.base=PRESET[v][0];o.model=PRESET[v][1];save();renderAll()}
+ else if(t.dataset.re)renderAll();
+}
+function sideChange(e){
+ const t=e.target;
+ if(t.id==="upFile"){addFiles([...t.files],$("#upDir").value);t.value="";return}
+ const a=t.dataset.act;
+ if(a==="pickflow"){S.cf=+t.value;save();renderAll()}
+ else if(a==="pickllm"){S.cl=+t.value;save();renderSet()}
+ else if(a==="tpl"){const tp=TPL[t.value];if(tp){S.roles.push({id:uid(),name:tp.name,sys:tp.sys,tools:[...tp.tools],dir:"",llm:"",max:8,pal:makePal()});save();renderAll();toast("已加入「"+tp.name+"」")}}
+ else sideInput(e);
+}
+for(const id of["#teamBox","#setBox"]){const el=$(id);el.addEventListener("click",sideClick);el.addEventListener("input",sideInput);el.addEventListener("change",e=>{if(e.target.matches("select,input[type=file]"))sideChange(e)})}
+$("#teamBox").addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.rid){d.open?openRoles.add(d.dataset.rid):openRoles.delete(d.dataset.rid)}},true);
+
+/* ====================== 角色詳情卡 / 全域 [data-do] 動作 ====================== */
+let detSig="";
+function selectRole(id){O.sel=id;detSig="";renderDetail(true);if(id&&activeTab!=="run"&&!O.edit.on)switchTab("run")}
+function renderDetail(force){
+ const box=$("#detail"),a=oa(O.sel),r=a&&S.roles.find(x=>x.id===a.id);
+ dirtyDetail=false;
+ if(!a||!r){if(!box.hidden){box.hidden=true;box.innerHTML=""}detSig="";return}
+ const acts=ACT[a.id]||[],sig=[a.status,a.act,acts.length?acts[0].ts:0,PEND.map(x=>x.id).join(),r.name,r.tools.join()].join("|");
+ if(!force&&sig===detSig)return;detSig=sig;box.hidden=false;
+ const st=STAT[a.status],mine=PEND.filter(x=>x.roleId===a.id);
+ box.innerHTML=`<div class="card dcard"><div class="drow"><canvas class="av" id="dAv" width="24" height="26"></canvas><div class="grow"><b>${esc(r.name)}</b> <span class="pill st-${a.status}">${st[0]}</span><div class="mut">${esc(a.act||"—")}</div></div><button class="sm" data-do="dclose" aria-label="關閉角色詳情">✕</button></div>
+  <div class="mut" style="margin-top:6px">AI：${esc(llmOf(r).name)} · 工具：${esc(r.tools.map(t=>TN[t]).join("、")||"無")} · 範圍：/${esc(r.dir||"")}</div>
+  ${mine.map(x=>x.kind==="gate"?`<div class="row" style="margin-top:6px"><span class="mut">這一步在等你核准，請看上方「待處理」。</span></div>`:`<div class="row" style="margin-top:6px"><span class="grow">${esc(x.title)}</span><button class="sm ok" data-do="allow" data-id="${x.id}">允許</button><button class="sm bad" data-do="deny" data-id="${x.id}">拒絕</button></div>`).join("")}
+  <div class="row" style="margin-top:8px"><button class="sm" data-do="editrole" data-id="${r.id}">編輯角色</button><button class="sm" data-do="reroll" data-id="${r.id}">🎲 換造型</button></div>
+  <div class="lab">近期動作</div><ul class="log">${acts.slice(0,15).map(e=>`<li><time>${hms(e.ts)}</time><span>${esc(e.txt)}</span></li>`).join("")||'<li class="mut">還沒有動作</li>'}</ul></div>`;
+ drawAvatar($("#dAv"),r.pal);
+}
+function uiTick(){if(dirtyDetail)renderDetail(false)}
+function scrollToEl(el,beh="smooth"){
+ if(isMobile()){const sb=$("#stage").getBoundingClientRect().bottom,tb=$(".tabs").offsetHeight,r=el.getBoundingClientRect();window.scrollBy({top:r.top-(sb+tb+10),behavior:beh})}
+ else el.scrollIntoView({block:"start",behavior:beh});
+}
+document.addEventListener("click",e=>{
+ const b=e.target.closest("[data-do]");if(!b)return;
+ const d=b.dataset.do,id=b.dataset.id,it=PEND.find(x=>x.id===id);
+ if(d==="allow"&&it)resolvePend(it,true);
+ else if(d==="deny"&&it)resolvePend(it,false);
+ else if(d==="gok"&&it)resolvePend(it,it.text);
+ else if(d==="gno"&&it)resolvePend(it,null);
+ else if(d==="allowall")PEND.filter(x=>x.kind==="write").forEach(x=>resolvePend(x,true));
+ else if(d==="dclose")selectRole(null);
+ else if(d==="editrole"){openRoles.add(id);switchTab("team");renderTeam();setTimeout(()=>{const c=$(`#teamBox details[data-rid="${id}"]`);if(c)scrollToEl(c)},60)}
+ else if(d==="reroll"){const r=S.roles.find(x=>x.id===id);if(r){r.pal=makePal();save();ofcSync();renderTeam();renderDetail(true)}}
+});
+$("#btnPend").onclick=()=>{switchTab("run");setTimeout(()=>scrollToEl($("#pend")),40)};
+function syncSound(){const b=$("#btnSound");b.textContent=S.ui.sound?"🔊":"🔇";b.setAttribute("aria-pressed",S.ui.sound)}
+$("#btnSound").onclick=()=>{S.ui.sound=!S.ui.sound;save();syncSound();snd.pop();if($("#setBox")){const c=$('#setBox [data-ui="sound"]');if(c)c.checked=S.ui.sound}};
+
+/* ---------- 便利貼 / 分頁 ---------- */
+const jump=n=>{const c=[...log.querySelectorAll('[data-step="'+n.dataset.j+'"]')].pop();if(c){switchTab("run");scrollToEl(c)}};
+$("#chips").addEventListener("click",e=>{const n=e.target.closest(".note");if(n)jump(n)});
+$("#chips").addEventListener("keydown",e=>{const n=e.target.closest(".note");if(n&&(e.key==="Enter"||e.key===" ")){e.preventDefault();jump(n)}});
+$("#ptog").onclick=()=>{const c=$("#prog").classList.toggle("col");$("#ptog").textContent=c?"展開便利貼":"收合便利貼"};
+function switchTab(k){
+ activeTab=k;$$(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===k));
+ ["run","team","set","layout"].forEach(n=>{$("#p-"+n).hidden=n!==k});
+ if(k==="set")renderSet();
+ setEdit(k==="layout");
+}
+$$(".tab").forEach(b=>b.addEventListener("click",()=>{switchTab(b.dataset.tab);if(isMobile())window.scrollTo({top:Math.min(window.scrollY,0)})}));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#help").hidden){if(O.edit.on)switchTab("run");else if(O.sel)selectRole(null)}});
+
+/* ====================== 使用說明(導覽) ====================== */
+const HELP_KEY="xlxo_help_seen";
+const HELP=[
+ {t:"歡迎來到小蝦辦公室 👋",h:`<p>這是<b>多角色 AI 工作流</b>＋<b>像素辦公室</b>：你設定幾位「角色」、串成「流程」，輸入總目標後，每位角色會在辦公室裡依序開工——思考、讀檔、寫檔、把成果傳給下一位。</p>
+   <ul><li>辦公室裡的動作反映<b>真實執行狀態</b>，不是隨機動畫。</li><li>設定都存在<b>你的瀏覽器</b>；角色只能讀寫「工作區」。</li></ul>
+   <p class="tip">已幫你載入範例，並預設用「離線示範」AI（不連網），直接按「執行流程」就能看到完整過程。</p>`},
+ {t:"① 辦公室畫面",tg:"#cv",h:`<span class="where">位置：主畫面</span>
+   <ul><li>頭上 <b>…</b> 思考中、放大鏡＝讀取、鉛筆＝寫入。</li><li><b>!</b> 要寫檔／刪檔，等你核准。</li><li><b>?</b> 這一步要先經你核准。</li><li>✔ 完成、✖ 審核退回或失敗；飛過的白紙＝把成果交給下一位。</li></ul>
+   <p>點角色看詳情；閒置的角色會去喝咖啡、坐沙發。點貓咪會有驚喜。</p>`},
+ {t:"② 工作區",tab:"set",tg:"#sec-ws",h:`<span class="where">位置：「設定」分頁・最上方</span>
+   <p><b>虛擬工作區</b>存在瀏覽器裡，手機、平板都能用，可上傳文字檔、下載成果。<b>本機資料匣</b>可直接讀寫電腦上的真實資料夾（Chrome／Edge 電腦版）。</p>
+   <ul><li>勾選「寫檔時不再詢問」可略過寫檔核准；<b>刪檔一定會詢問</b>。</li></ul>`},
+ {t:"③ 設定 AI",tab:"set",tg:"#sec-ai",h:`<span class="where">位置：「設定」分頁・第二區</span>
+   <p>預設是<b>離線示範</b>（腳本模擬，不連網）。想用真的 AI：按「新增」加入 OpenAI 相容、Anthropic、Ollama，或選 <b>Puter</b>（免填 Key）。</p>
+   <p class="tip">離線示範的審稿員第一次會故意退回，讓你看到「退回修改」流程。API Key 只存在本機，匯出不含 Key。</p>`},
+ {t:"④ 建立角色",tab:"team",tg:"#sec-roles",h:`<span class="where">位置：「團隊」分頁・第一區</span>
+   <p>每個角色是一張卡片：<b>職責提示詞</b>、<b>可用工具</b>、<b>工作子目錄</b>、<b>使用的 AI</b>。新增後它會立刻出現在辦公室，可按「🎲 換造型」。</p>
+   <p class="tip">每位角色需要一張工作桌；桌子不夠時到「佈局」多放幾張。</p>`},
+ {t:"⑤ 串成流程",tab:"team",tg:"#sec-flows",h:`<span class="where">位置：「團隊」分頁・第二區</span>
+   <ul><li><b>執行</b>／<b>審核</b>：審核第一行須為 PASS 或 FAIL，FAIL 會退回上一個執行步驟。</li><li><b>執行前需我核准</b>：該步驟開始前暫停，角色頭上會出現 <b>?</b>。</li><li><b>與上一步並行</b>：相鄰的執行步驟同時開工。</li></ul>`},
+ {t:"⑥ 輸入總目標並執行",tab:"run",tg:"#goal",h:`<span class="where">位置：「執行」分頁・最上方</span>
+   <p>寫下這次的<b>總目標</b>，按「▶ 執行流程」（或 <b>Ctrl／⌘＋Enter</b>）。可從任一步開始、隨時停止、下載紀錄。</p>
+   <p class="tip">手機版：辦公室畫面固定在上方，下面的分頁可捲動。</p>`},
+ {t:"⑦ 核准、進度、成果",tab:"run",tg:()=>$("#prog").hidden?$("#log"):$("#prog"),h:`<span class="where">位置：「執行」分頁・輸入框下方</span>
+   <ul><li>角色請求寫檔時，上方會出現紅框<b>「待處理」</b>，頂欄也會出現紅色按鈕。</li><li>便利貼顯示每步進度，點一下跳到那一步的輸出。</li><li>每步輸出可<b>複製、下載 MD／PPTX／PDF</b>；結束後有「最終成果」卡片。</li></ul>`},
+ {t:"⑧ 改造辦公室",tab:"layout",tg:"#tools",h:`<span class="where">位置：「佈局」分頁</span>
+   <p>換地板、築牆、擺家具、旋轉桌子，可復原／重做，也能匯入／匯出佈局。</p>`},
+ {t:"需要時再回來看 ✔",tab:"run",tg:"#btnHelp",h:`<span class="where">位置：頂欄右側「？」</span><p>隨時可點，會從頭重新導覽一次。準備好就按「▶ 執行流程」吧！</p>`}
+];
+let hi=0,hOpener=null,hTab="run";
+const helpRaw=s=>!s.tg?null:(typeof s.tg==="function"?s.tg():$(s.tg));
+function helpDraw(){
+  const s=HELP[hi],last=hi===HELP.length-1;
+  $("#hTitle").textContent=s.t;$("#hBody").innerHTML=s.h;
+  $("#hDots").innerHTML=HELP.map((x,k)=>`<button type="button" class="dot${k===hi?" on":""}" data-k="${k}" aria-label="第 ${k+1} 步：${esc(x.t)}"${k===hi?' aria-current="step"':""}></button>`).join("");
+  $("#hCount").textContent=(hi+1)+" / "+HELP.length;
+  $("#hPrev").disabled=hi===0;$("#hNext").textContent=last?"開始使用":"下一步";$("#hBody").scrollTop=0;
+}
+function helpPlace(){
+  const box=$(".hbox"),spot=$("#spot"),arr=$("#hArr"),help=$("#help");
+  if(help.hidden)return;
+  let el=helpRaw(HELP[hi]);if(el&&!el.getClientRects().length)el=null;
+  const vw=innerWidth,vh=innerHeight,m=12;
+  box.style.maxHeight=Math.min(vh-2*m,620)+"px";
+  const bw=box.offsetWidth,bh=box.offsetHeight;
+  if(!el){spot.hidden=true;arr.hidden=true;help.classList.add("dim");box.style.left=Math.max(m,(vw-bw)/2)+"px";box.style.top=Math.max(m,(vh-bh)/2)+"px";return}
+  help.classList.remove("dim");
+  const r=el.getBoundingClientRect(),p=6,g=16;
+  spot.hidden=false;Object.assign(spot.style,{left:r.left-p+"px",top:r.top-p+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
+  let x,y,cls="";
+  if(vw-r.right>=bw+g+p+m){cls="al";x=r.right+p+g;y=r.top}
+  else if(vh-r.bottom>=bh+g+p+m){cls="au";y=r.bottom+p+g;x=r.left}
+  else if(r.top>=bh+g+p+m){cls="ad";y=r.top-p-g-bh;x=r.left}
+  else if(r.left>=bw+g+p+m){cls="ar";x=r.left-p-g-bw;y=r.top}
+  else{x=(vw-bw)/2;y=vh-bh-m}
+  x=Math.min(Math.max(m,x),vw-bw-m);y=Math.min(Math.max(m,y),vh-bh-m);
+  box.style.left=x+"px";box.style.top=y+"px";
+  if(!cls){arr.hidden=true;return}
+  const cx=(Math.max(r.left,0)+Math.min(r.right,vw))/2,cy=(Math.max(r.top,0)+Math.min(r.bottom,vh))/2,cl=(v,a,b)=>Math.min(Math.max(v,a),b);
+  arr.hidden=false;arr.className="harr "+cls;arr.style.left=arr.style.top="";
+  if(cls==="al"||cls==="ar")arr.style.top=cl(cy-y-6,14,bh-26)+"px";else arr.style.left=cl(cx-x-6,14,bw-26)+"px";
+}
+function helpGo(k){
+  hi=Math.max(0,Math.min(HELP.length-1,k));const s=HELP[hi];helpDraw();
+  if(s.tab)switchTab(s.tab);
+  const el=helpRaw(s);
+  if(el){const d=el.closest("details");if(d&&!d.open)d.open=true}
+  helpPlace();
+  if(el){if(isMobile()&&!el.closest("#stage,#top"))scrollToEl(el,"instant");else el.scrollIntoView({block:"nearest",inline:"nearest"});requestAnimationFrame(helpPlace);setTimeout(helpPlace,200)}
+}
+function openHelp(){hOpener=document.activeElement;hTab=activeTab;$("#help").hidden=false;helpGo(0);$("#hNext").focus();try{localStorage.setItem(HELP_KEY,"1")}catch(e){}}
+function closeHelp(){$("#help").hidden=true;$("#spot").hidden=true;switchTab(hTab);if(hOpener&&hOpener.focus&&document.contains(hOpener))hOpener.focus()}
+$("#btnHelp").onclick=openHelp;$("#hSkip").onclick=closeHelp;
+$("#hPrev").onclick=()=>{if(hi>0)helpGo(hi-1)};
+$("#hNext").onclick=()=>{if(hi>=HELP.length-1)closeHelp();else helpGo(hi+1)};
+$("#hDots").onclick=e=>{const b=e.target.closest(".dot");if(b)helpGo(+b.dataset.k)};
+addEventListener("resize",helpPlace);
+document.addEventListener("keydown",e=>{
+  if($("#help").hidden)return;
+  if(e.key==="Escape"){e.preventDefault();closeHelp();return}
+  if(e.key==="ArrowRight"){e.preventDefault();$("#hNext").click();return}
+  if(e.key==="ArrowLeft"){e.preventDefault();$("#hPrev").click();return}
+  if(e.key==="Tab"){
+    const f=[...$("#help").querySelectorAll("button:not([disabled])")];if(!f.length)return;
+    const a=f[0],z=f[f.length-1];
+    if(!$("#help").contains(document.activeElement)){e.preventDefault();a.focus()}
+    else if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
+    else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+  }
+},true);
+const helpSeen=()=>{try{return localStorage.getItem(HELP_KEY)==="1"}catch(e){return true}};
+
+/* ====================== 啟動 ====================== */
+(async()=>{
+ const m=await hGet("mem");if(m&&m.files){MEM.files=m.files;MEM.dirs=new Set(m.dirs||[])}
+ if(S.wsKind==="fs"){const h=await hGet("root");if(h){try{if(await h.queryPermission({mode:"readwrite"})==="granted"){fsRoot=h;fsMsg="目前開放：/"+h.name}else fsMsg="「"+h.name+"」需重新授權，請再按一次選擇資料匣。"}catch(e){}}}
+ O.set=S.ui;
+ O.layout=sanitizeLayout(S.layout)||defaultLayout();S.layout=O.layout;
+ if(isFresh&&!S.roles.length&&!S.flows.length)sample();else seedIfEmptyMem();
+ buildEditorUI();updateSizeUI();updateUndo();syncSound();fillHist();
+ rebuild();addPet();renderAll();switchTab("run");fit();
+ new ResizeObserver(()=>fit()).observe($("#stage"));addEventListener("resize",fit);
+ requestAnimationFrame(t=>{last=t;frame(t)});
+ if(!helpSeen())setTimeout(openHelp,400);
+})();
+function seedIfEmptyMem(){}
+})();
+</script>
+</body>
+</html>
