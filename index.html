@@ -958,7 +958,7 @@ const TOOLS=[
  {name:"delete_file",description:"刪除單一檔案（每次都需使用者確認）。",props:{path:{type:"string"}},req:["path"]},
  {name:"fetch_url",description:"讀取一個 http/https 網頁並回傳純文字（每個網站首次需使用者核准；受瀏覽器跨網域限制，部分網站會讀不到；靠 JavaScript 產生內容的網頁可能讀不到）。",props:{url:{type:"string"}},req:["url"]},
  {name:"make_slides",description:"把簡報 Markdown 轉成可直接開啟的 HTML 簡報檔並存入工作區（←/→ 切換、F 全螢幕、可列印成 PDF）。markdown 用單獨一行 --- 分隔投影片，每張以 # 標題開頭，接著用「- 」條列。也可改用 source 指定工作區內既有的 .md 檔。",props:{path:{type:"string"},markdown:{type:"string"},source:{type:"string"},title:{type:"string"}},req:["path"]},
- {name:"web_search",description:"搜尋資料並回傳標題、摘要與網址（預設查維基百科；設定中填入 SearXNG 網址可改為一般網頁搜尋）。回傳的網址可再用 fetch_url 讀取。",props:{query:{type:"string"},lang:{type:"string"}},req:["query"]},
+ {name:"web_search",description:"搜尋網路並回傳標題、日期、來源與網址。蒐集新聞時 source 填 news、days 填天數（預設 7，最多 30），會查近期新聞（預設用 GDELT；設定中填入 SearXNG 網址則用它的新聞分類）；一般資料預設查維基百科。回傳的網址可再用 fetch_url 讀內文（受瀏覽器跨網域限制，讀不到時請只用標題與摘要，不要編造內容）。",props:{query:{type:"string"},lang:{type:"string"},source:{type:"string"},days:{type:"number"}},req:["query"]},
  {name:"remember",description:"把一則重要結論記進你自己的長期記憶（下次執行時會自動帶入）。只記事實與偏好，一行一則。",props:{note:{type:"string"}},req:["note"]},
  {name:"delegate",description:"（主管用）把一項子任務指派給另一位角色，等它做完並取回報告。role 填角色名稱，task 寫清楚要交付什麼。同一輪同時指派多位會並行執行。",props:{role:{type:"string"},task:{type:"string"}},req:["role","task"]},
  {name:"read_doc",description:"讀取 Word（.docx）或 PDF（.pdf）文件並回傳純文字（PDF 會標示頁碼）。檔案需先上傳到工作區；掃描版 PDF 沒有文字層會讀不到。純文字檔請改用 read_file。",props:{path:{type:"string"}},req:["path"]},
@@ -968,7 +968,7 @@ const TOOLS=[
 const TN={list_dir:"列目錄",read_file:"讀檔",write_file:"寫檔",search:"搜尋",append_file:"附加",replace_in_file:"取代",delete_file:"刪檔",fetch_url:"讀網頁",make_slides:"做簡報",web_search:"搜尋網路",remember:"記住",delegate:"指派",read_doc:"讀文件",run_js:"跑程式",mcp_call:"外部工具"};
 const READ=new Set(["list_dir","read_file","read_doc","search","fetch_url","web_search"]);
 const TPL=[
- {name:"研究員",sys:"你負責蒐集並整理資料，條列重點並標示來源檔名，不做無根據的推論。",tools:["list_dir","read_file","search"]},
+ {name:"研究員",sys:"你負責蒐集並整理資料，條列重點並標示來源（檔名或網址），不做無根據的推論。需要最新資訊或新聞時，用 web_search 搜尋（新聞請設 source 為 news、days 為天數），必要時用 fetch_url 讀內文；讀不到內文就只回報標題、日期與網址，不要編造。",tools:["list_dir","read_file","search","web_search","fetch_url"]},
  {name:"程式碼審查員",sys:"你審查程式碼的正確性、安全性與可讀性，依嚴重程度列出問題與修改建議，並引用檔名與行號。",tools:["list_dir","read_file","search"]},
  {name:"翻譯員",sys:"你負責忠實翻譯，保留格式與專有名詞，並將譯文寫入檔案。",tools:["read_file","write_file"]},
  {name:"摘要員",sys:"你負責把長文濃縮成條理清楚的摘要，附上關鍵結論與待辦事項。",tools:["read_file"]},
@@ -986,6 +986,9 @@ const DEMO_PAGES={
 const DEMO_SEARCH=[
  "敏捷週會實務 — 週會只談上週完成、本週計畫與卡住的事。 — https://"+DEMO_HOST+"/agile-weekly",
  "回歸測試入門 — 改版後重跑重要測試，確保舊功能正常。 — https://"+DEMO_HOST+"/regression"];
+let gdeltLast=0;
+const DEMO_NEWS_BODY={"/news-1":"# 某市推動智慧交通試辦\n- 市府宣布在三條主要幹道試辦號誌連動。\n- 預計下月起蒐集通勤時間資料，評估是否擴大。","/news-2":"# 本週半導體供應鏈動態\n- 多家廠商公布下季產能規劃。\n- 分析指出設備交期較上季縮短。","/news-3":"# 校園資安演練登場\n- 多所大專院校同步進行釣魚郵件演練。\n- 主辦單位將於月底公布改善建議。"};
+function demoNews(){const d=n=>{const x=new Date(Date.now()-n*864e5);return x.getFullYear()+"-"+pad2(x.getMonth()+1)+"-"+pad2(x.getDate())};return["（示範新聞資料，非真實新聞）","某市推動智慧交通試辦 — 示範新聞網，"+d(1)+" — https://"+DEMO_HOST+"/news-1","本週半導體供應鏈動態 — 示範新聞網，"+d(3)+" — https://"+DEMO_HOST+"/news-2","校園資安演練登場 — 示範新聞網，"+d(5)+" — https://"+DEMO_HOST+"/news-3"]}
 const DEMO_MCP={name:"示範伺服器",url:"demo://office",tools:[
  {name:"get_team_calendar",description:"取得團隊本週行事曆（示範資料）。",schema:{type:"object",properties:{week:{type:"string"}},required:[]}},
  {name:"create_ticket",description:"建立一張追蹤工單並回傳編號（示範，不會真的建立）。",schema:{type:"object",properties:{title:{type:"string"},owner:{type:"string"}},required:["title"]}}]};
@@ -1371,7 +1374,7 @@ const impl={
   if(!/^https?:$/.test(u.protocol))throw new Error("只支援 http／https 網址");
   if(!NETOK.has(u.host)&&!await askPerm({role:cx.role,kind:"net",title:"讀取網頁 "+u.href,detail:"瀏覽器將向 "+u.host+" 送出一次 GET 請求，只讀取文字，不會送出您的資料。"}))return "使用者拒絕連線。";
   NETOK.add(u.host);
-  if(u.host===DEMO_HOST){cx.tainted=true;return wrapExt(DEMO_PAGES[u.pathname]||"（示範網站沒有這個頁面）")}
+  if(u.host===DEMO_HOST){cx.tainted=true;return wrapExt(DEMO_PAGES[u.pathname]||DEMO_NEWS_BODY[u.pathname]||"（示範網站沒有這個頁面）")}
   let r;try{r=await fetch(u.href,{signal:ctl&&ctl.signal})}catch(e){if(e&&e.name==="AbortError")throw e;throw new Error("無法連線：網站不允許跨網域讀取（CORS）或網路中斷")}
   if(!r.ok)throw new Error("HTTP "+r.status);
   const raw=await r.text();let t=raw;
@@ -1380,19 +1383,29 @@ const impl={
    d.querySelectorAll("br,p,div,li,tr,section,article,h1,h2,h3,h4,h5,h6").forEach(x=>x.append("\n"));
    t=(d.body?d.body.textContent:"").replace(/[ \t]+/g," ").replace(/\n\s*\n\s*/g,"\n\n").trim()}
   cx.tainted=true;return wrapExt(t?(t.length>60000?t.slice(0,60000)+"\n…（已截斷）":t):"（頁面沒有可讀文字；以 JavaScript 產生內容的網頁無法讀取）")},
- async web_search(b,{query,lang},cx){
+ async web_search(b,{query,lang,source,days},cx){
   const q=String(query||"").trim();if(!q)throw new Error("缺少 query");
   const sx=(S.searchUrl||"").trim().replace(/\/+$/,""),lg=/^(en|ja|zh)$/.test(lang)?lang:"zh";
+  const dd=Math.min(30,Math.max(1,Math.floor(+days)||7));
+  const news=source==="news"||(source!=="wiki"&&(/新聞|最新|快訊|頭條|本週|這週|近期|news|headline/i.test(q)||+days>0));
   const demo=!sx&&llmOf(cx.role).prov==="demo";
-   const url=demo?"https://"+DEMO_HOST+"/search?q="+encodeURIComponent(q):sx?sx+"/search?format=json&q="+encodeURIComponent(q):"https://"+lg+".wikipedia.org/w/api.php?action=query&list=search&srlimit=6&format=json&origin=*&srsearch="+encodeURIComponent(q);
+  const kw=q.replace(/(新聞|最新消息|最新|近期|本週|這週|一週|一星期|資料|蒐集|收集)/g," ").replace(/\s+/g," ").trim()||({zh:"台灣",en:"world",ja:"日本"})[lg];
+  const gd="https://api.gdeltproject.org/api/v2/doc/doc?mode=ArtList&format=json&maxrecords=15&sort=DateDesc&timespan="+dd+"d&query="+encodeURIComponent(kw+" sourcelang:"+({zh:"chinese",en:"english",ja:"japanese"})[lg]);
+  const url=demo?"https://"+DEMO_HOST+"/search?q="+encodeURIComponent(q):sx?sx+"/search?format=json&q="+encodeURIComponent(q)+(news?"&categories=news&time_range="+(dd<=1?"day":dd<=7?"week":"month"):""):news?gd:"https://"+lg+".wikipedia.org/w/api.php?action=query&list=search&srlimit=6&format=json&origin=*&srsearch="+encodeURIComponent(q);
   let host;try{host=new URL(url).host}catch(e){throw new Error("搜尋服務網址格式不正確")}
-  if(!NETOK.has(host)&&!await askPerm({role:cx.role,kind:"net",title:"搜尋「"+q+"」（"+host+"）",detail:"只送出搜尋關鍵字。"}))return "使用者拒絕連線。";
+  if(!NETOK.has(host)&&!await askPerm({role:cx.role,kind:"net",title:"搜尋"+(news?"新聞":"")+"「"+q+"」（"+host+"）",detail:"只送出搜尋關鍵字"+(news?"與天數":"")+"。"}))return "使用者拒絕連線。";
   NETOK.add(host);
-  if(demo){cx.tainted=true;return wrapExt(DEMO_SEARCH.join("\n"))}
-  let j;try{const r=await fetch(url,{signal:ctl&&ctl.signal});if(!r.ok)throw new Error("HTTP "+r.status);j=await r.json()}catch(e){if(e&&e.name==="AbortError")throw e;throw new Error("搜尋失敗："+(e.message||e)+"（自訂搜尋服務需允許 CORS）")}
-  const rows=sx?(j.results||[]).slice(0,6).map(x=>x.title+" — "+String(x.content||"").slice(0,160)+" — "+x.url):((j.query&&j.query.search)||[]).map(x=>x.title+" — "+String(x.snippet).replace(/<[^>]+>/g,"").slice(0,160)+" — https://"+lg+".wikipedia.org/wiki/"+encodeURIComponent(x.title.replace(/ /g,"_")));
+  if(demo){cx.tainted=true;return wrapExt((news?demoNews():DEMO_SEARCH).join("\n"))}
+  if(!sx&&news){const w=5300-(Date.now()-gdeltLast);if(w>0)await sleep(w);gdeltLast=Date.now()}   // GDELT 限制：每 5 秒 1 次
+  let txt;try{const r=await fetch(url,{signal:ctl&&ctl.signal});if(!r.ok)throw new Error("HTTP "+r.status);txt=await r.text()}catch(e){if(e&&e.name==="AbortError")throw e;throw new Error("搜尋失敗："+(e.message||e)+(sx?"（自訂搜尋服務需允許 CORS）":news?"（新聞來源無法連線；可在「設定」填入允許 CORS 的 SearXNG 網址改用它）":""))}
+  let j;try{j=JSON.parse(txt)}catch(e){throw new Error("搜尋服務回應不是有效資料："+txt.replace(/\s+/g," ").slice(0,120))}
+  const dt=x=>{const m=/^(\d{4})(\d{2})(\d{2})/.exec(String(x||""));return m?m[1]+"-"+m[2]+"-"+m[3]:String(x||"").slice(0,10)};
+  let rows;
+  if(sx)rows=(j.results||[]).slice(0,10).map(x=>x.title+" — "+String(x.content||"").slice(0,160)+(x.publishedDate?" — "+dt(x.publishedDate):"")+" — "+x.url);
+  else if(news){const seen=new Set();rows=(j.articles||[]).filter(x=>!seen.has(x.title)&&seen.add(x.title)).slice(0,15).map(x=>x.title+" — "+x.domain+"，"+dt(x.seendate)+" — "+x.url);if(rows.length)rows.unshift("（近 "+dd+" 天新聞，來源 GDELT；只有標題與網址，沒有內文）")}
+  else rows=((j.query&&j.query.search)||[]).map(x=>x.title+" — "+String(x.snippet).replace(/<[^>]+>/g,"").slice(0,160)+" — https://"+lg+".wikipedia.org/wiki/"+encodeURIComponent(x.title.replace(/ /g,"_")));
   cx.tainted=true;return wrapExt(rows.join("\n")||"沒有找到結果。")},
- async delegate(b,{role,task},cx){
+  async delegate(b,{role,task},cx){
   const dep=cx.depth||0;if(dep>=2)throw new Error("指派層數已達上限（2 層）");
   const nm=String(role||"").trim(),others=S.roles.filter(r=>r.id!==cx.role.id);
   const t=others.find(r=>r.name===nm)||others.find(r=>nm&&(r.name.includes(nm)||nm.includes(r.name)));
@@ -1704,7 +1717,7 @@ async function demoLlm(c,h,tools,sys){
   const reads=ok("read_file"),todo=reads.some(r=>/TODO/.test(r.out));
   if(has("search")&&wantRead&&readList.length&&!did("search"))return one("search",{query:todo?"TODO":"決議"},"搜尋關鍵字「"+(todo?"TODO":"決議")+"」。");
   if(has("read_doc")&&docF.length&&!did("read_doc"))return one("read_doc",{path:docF[0]},"讀取 Word 文件 "+docF[0]+"。");
-  if(has("web_search")&&!did("web_search"))return one("web_search",{query:(goal.split(/[，。、\n]/)[0]||"週會").slice(0,14),lang:"zh"},"先搜尋一下背景資料。");
+  if(has("web_search")&&!did("web_search")&&(has("make_slides")||/新聞|搜尋|上網|網路|最新/.test(goal+" "+task))){const nw=/新聞/.test(goal+" "+task);return one("web_search",{query:(nw?"新聞":(goal.split(/[，。、\n]/)[0]||"週會")).slice(0,14),lang:"zh",...(nw?{source:"news",days:7}:{})},nw?"搜尋近一週新聞。":"先搜尋一下背景資料。")}
   const urls=[...ok("web_search").map(r=>r.out).join("\n").matchAll(/https?:\/\/[^\s"<>]+/g)].map(m=>m[0]);
   if(has("fetch_url")&&urls.length&&!did("fetch_url"))return one("fetch_url",{url:urls[0]},"讀取第一筆搜尋結果的網頁。");
   if(has("mcp_call")){
@@ -1774,6 +1787,7 @@ async function demoLlm(c,h,tools,sys){
   }else{
     const bullets=reads.map(r=>r.out.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,5).map(x=>"- "+x.replace(/^[-*#>\s]+/,"")+"（來源："+r.args.path+"）").join("\n")).join("\n"),first=(prev.split("\n")[0]||"").trim();
     if(fixing){body=prev+"\n"+extra;if(did("replace_in_file")&&first)body=body.replace(first,first+"（已依審核意見修訂）")}
+    else if(!bullets&&ok("web_search").length){const fe=ok("fetch_url")[0],rows=strip(ok("web_search")[0].out).split("\n").filter(Boolean).map(x=>"- "+x);body="# 資料重點\n\n"+intro+"\n\n## 網路搜尋結果\n"+rows.join("\n")+(fe?"\n\n## 第一則內文摘錄\n"+strip(fe.out).split("\n").slice(0,6).join("\n"):"")+"\n"}
     else if(bullets)body="# 資料重點\n\n"+intro+"\n\n## 重點整理\n"+bullets+"\n";
     else if(/^#\s/m.test(prev)&&/離線示範/.test(prev))body=prev;
     else if(prev&&prev!=="（無）"&&!/^（從第/.test(prev))body="# 文件草稿\n\n"+intro+"\n\n## 總目標\n"+(goal||"（未提供）")+"\n\n## 內容\n"+prev.split("\n").filter(l=>!/^>\s*離線示範/.test(l)&&!/^# /.test(l)).map(l=>l.replace(/^(#{2,5}) /,"#$1 ")).join("\n").trim()+"\n";
@@ -1956,7 +1970,7 @@ function renderSet(){
   <label class="chk"><input type="checkbox" data-ui="pet" ${S.ui.pet?"checked":""}> 辦公室貓咪</label>
   <label class="chk"><input type="checkbox" data-ui="sound" ${S.ui.sound?"checked":""}> 音效</label>
    <label class="chk"><input type="checkbox" data-ui="keySession" ${S.ui.keySession?"checked":""}> API Key 只保留在本次開啟（不寫入瀏覽器儲存，重新整理後需再填）</label>
-   ${fld("searchUrl","搜尋服務網址（選填：SearXNG，需允許 CORS；空白＝查維基百科）",S.searchUrl||"")}
+   ${fld("searchUrl","搜尋服務網址（選填：SearXNG，需允許 CORS；空白＝新聞用 GDELT、一般資料查維基百科）",S.searchUrl||"")}
    <div class="row" style="margin-top:8px"><button class="sm" id="btnSelfTest">🧪 自我測試</button></div></details></div>
  <div class="sec"><details><summary>範例、匯出入與其他</summary><div class="row" style="margin-top:6px">
   <button data-act="sample">載入範例</button><button data-act="export">匯出 JSON</button><button data-act="import">匯入 JSON</button><button data-act="help">使用說明</button></div>
@@ -2249,6 +2263,7 @@ const HELP=[
      <p class="tip">離線示範的替身：<code>demo.xiaoxia.local</code> 是內建的示範網站與搜尋結果、「示範伺服器」是內建的 MCP、「專案週報.docx」由程式即時產生。它們不連網，但<b>核准流程與真實工具完全一樣</b>。示範 AI 是腳本，翻譯只換固定詞彙；換成真實 AI 後，同樣的角色與流程就會真的思考。</p>`},
   {t:"⑫ 排程、一句話建流程、內建 MCP、安裝成 App",tab:"run",tg:"#genBox",h:`<span class="where">位置：「執行」分頁最上方；「設定」分頁</span>
      <ul><li><b>✨ 一句話建立流程</b>：用一段話描述要做的事（可含「每天早上 9 點」這類時間），系統會自動拆成步驟、指派給最合適的角色，必要時一併建立排程。離線示範用規則判斷；選了真實 AI 則由 AI 規劃，失敗會自動改用規則。</li>
+     <li><b>🌐 蒐集新聞／上網搜尋</b>：角色要勾選「web_search」「fetch_url」工具（範例的研究員已有）。新聞預設查 GDELT（只有標題、日期、來源與網址），要更完整可在「設定」填入允許 CORS 的 SearXNG 網址。每個網站首次連線需核准。</li>
      <li><b>排程</b>（設定 → 排程）：單次、每隔一段時間、每天、每週指定星期。<b>頁面或已安裝的 App 開著才會執行</b>；錯過的可在開啟時補跑；需要核准時會發系統通知。</li>
      <li><b>Chrome 內建 MCP</b>：「Chrome 內建工具」不需伺服器，提供時間、裝置資訊、計算、通知、語音朗讀、剪貼簿、App 徽章，給有「外部工具」的角色使用，每次呼叫仍需核准。範例流程④可直接體驗。</li>
      <li><b>安裝成 App（PWA）</b>：用 https 或 localhost 開啟資料夾版，頂欄會出現「⬇ 安裝」；iPhone 用 Safari 的「加入主畫面」。安裝後可離線開啟、有獨立視窗與圖示徽章。</li></ul>
@@ -2421,7 +2436,7 @@ const GEN_RULES=[
  {k:/歸檔|存檔|封存|備份/,name:"歸檔",tool:"write_file"},
  {k:/寫成|撰寫|撰稿|草稿|寫一份|寫文件|產出.*(文件|報告)/,name:"撰稿",tool:"write_file"},
  {k:/摘要|濃縮|總結/,name:"摘要",tool:"read_file"},
- {k:/搜尋網路|上網|網路搜尋|網頁/,tool:"web_search",name:"簡報"},
+ {k:/新聞|最新消息|即時|搜尋網路|上網|網路搜尋|網頁|搜尋/,tool:"web_search",name:"研究"},
  {k:/整理|蒐集|收集|讀取|研究|彙整|閱讀|盤點/,name:"研究",tool:"read_file"},
  {k:/主管|分派|指派|分工/,name:"主管",tool:"delegate"}];
 const SCHED_RE=/每\s*\d+\s*(?:分鐘|分|小時|個小時)|每(?:個)?小時|每(?:天|日)|天天|平日|工作日|每(?:週|周|星期|禮拜)[一二三四五六日天、和及]*|\d+\s*(?:分鐘|小時)後|(?:今天|明天|後天)|(?:上午|早上|早晨|凌晨|中午|下午|晚上|傍晚)?\s*\d{1,2}\s*(?:點|時|:|：)\s*(?:半|\d{1,2}\s*分?)?/g;
@@ -2515,6 +2530,9 @@ async function genFlow(){
    S.schedules.push(s);schedRecalc(S.schedules.length-1);sNote="；已建立排程：「"+schedDesc(s)+"」，下次 "+fmtT(s.next);
    if("Notification" in window&&Notification.permission==="default")Notification.requestPermission().then(()=>{if(activeTab==="set")renderSet()});
   }
+  const webNeed=/新聞|最新消息|即時|搜尋網路|上網|網路搜尋|網頁/,webRoles=[];
+  plan.steps.forEach(s=>{if(s.type==="work"&&webNeed.test(s.task)){const r=S.roles.find(x=>x.id===s.role);if(r&&!r.tools.includes("web_search")){r.tools.push("web_search");if(!r.tools.includes("fetch_url"))r.tools.push("fetch_url");webRoles.push(r.name)}}});
+  if(webRoles.length)sNote+="；已為「"+[...new Set(webRoles)].join("、")+"」開啟網路搜尋工具";
   save();renderAll();$("#goal").value=plan.goal;lastDG=plan.goal;schedBar();
   out.innerHTML="<b>已建立「"+esc(f.name)+"」</b>（"+esc(note)+esc(sNote)+"）<ol class=\"gen\">"+plan.steps.map(s=>{const r=S.roles.find(x=>x.id===s.role);return"<li><b>"+esc(r?r.name:"?")+"</b>"+(s.type==="review"?"（審核）":"")+(s.par?"（並行）":"")+(s.gate?"（需核准）":"")+" — "+esc(s.task)+"</li>"}).join("")+"</ol><span class=\"mut\">可到「團隊」微調；總目標已填入上方。</span>";
   if($("#genRun").checked)setTimeout(()=>{if(!busy)runFlow()},200);
@@ -2593,7 +2611,8 @@ function goalHint(force){
  O.layout=sanitizeLayout(S.layout)||defaultLayout();S.layout=O.layout;
  if(isFresh&&!S.roles.length&&!S.flows.length)sample();else seedIfEmptyMem();
  buildEditorUI();updateSizeUI();updateUndo();syncSound();fillHist();
- rebuild();addPet();ensureBuiltinMcp();save();renderAll();goalHint();$("#genBtn").onclick=genFlow;schedInit();switchTab("run");fit();pwaInit();
+ rebuild();addPet();if(!S.ui.webMig){S.ui.webMig=true;S.roles.forEach(r=>{if(/研究員|收集員/.test(r.name)&&!r.tools.includes("web_search")){r.tools.push("web_search");if(!r.tools.includes("fetch_url"))r.tools.push("fetch_url")}})}
+ensureBuiltinMcp();save();renderAll();goalHint();$("#genBtn").onclick=genFlow;schedInit();switchTab("run");fit();pwaInit();
  new ResizeObserver(()=>fit()).observe($("#stage"));addEventListener("resize",fit);
  requestAnimationFrame(t=>{last=t;frame(t)});
  if(!helpSeen())setTimeout(openHelp,400);

@@ -1,5 +1,5 @@
 /* 小蝦辦公室 Service Worker：離線殼層快取 + 通知點擊。更新時請調整 VERSION。 */
-const VERSION = "xiaoxia-v6.0.0";
+const VERSION = "xiaoxia-v6.1.0";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon.svg"];
 const CDN = ["cdn.jsdelivr.net", "cdnjs.cloudflare.com"];
 
