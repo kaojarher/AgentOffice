@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1b202c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="小蝦辦公室">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="小蝦辦公室：把多角色 AI 工作流變成像素辦公室。角色會依真實執行狀態走動、思考、讀檔、寫檔、等待核准。單檔、跨平台、響應式。">
 <title>小蝦辦公室 · 多角色工作流</title>
 <style>
@@ -186,6 +193,9 @@ dialog textarea{height:170px;font:12px ui-monospace,Menlo,Consolas,monospace;col
 @media (max-width:420px){.brand b{display:none}.note{width:136px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .lkr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:4px 0}.lkt{width:38px;font-size:12px;color:var(--mute)}.lkr select{flex:1;min-width:90px;width:auto}.lkc{display:flex;gap:3px;align-items:center;flex-wrap:wrap}button.sw{min-height:20px;width:20px;height:20px;padding:0;border-radius:4px}input[type=color]{width:30px;height:24px;padding:0;border:2px solid #000;background:none;border-radius:4px;cursor:pointer}
+ol.gen{margin:6px 0 6px 18px;padding:0}ol.gen li{margin:2px 0}
+input[type=time],input[type=datetime-local]{width:100%;min-width:0;padding:7px 9px;min-height:38px;background:#0f131b;border:2px solid #000;border-radius:var(--r);color:var(--ink);color-scheme:dark}
+#schedBar{margin:6px 2px;font-size:12px}#btnInstall{background:var(--acc2);color:#06231f;font-weight:700}
 </style>
 </head>
 <body>
@@ -195,6 +205,7 @@ dialog textarea{height:170px;font:12px ui-monospace,Menlo,Consolas,monospace;col
     <b>小蝦辦公室</b>
   </div>
   <div class="grow"></div>
+  <button id="btnInstall" hidden title="安裝成 App（桌面／手機）">⬇ 安裝</button>
   <button id="btnPend" hidden title="有待處理的核准／確認">⚑ 待處理 <b id="pendN"></b></button>
   <button id="btnSound" aria-pressed="true" title="音效">🔊</button>
   <button id="btnHelp" title="使用說明" aria-label="使用說明">？</button>
@@ -214,6 +225,11 @@ dialog textarea{height:170px;font:12px ui-monospace,Menlo,Consolas,monospace;col
     </nav>
     <div class="panes">
       <section class="pane" id="p-run">
+<details class="card" id="genBox"><summary>✨ 用一句話建立流程</summary>
+ <textarea id="genText" rows="3" placeholder="例：每天早上 9 點，整理 inbox 的會議記錄，寫成摘要，請審稿員檢查後歸檔" aria-label="用一段話描述要做的事"></textarea>
+ <div class="row"><label class="chk"><input type="checkbox" id="genSched" checked>句中有時間就一併建立排程</label><label class="chk"><input type="checkbox" id="genRun">建立後立即執行</label></div>
+ <button class="pri" id="genBtn" style="width:100%">✨ 自動生成流程並指派角色</button><div id="genOut" class="mut" style="margin-top:6px"></div></details>
+<div id="schedBar" class="mut" hidden></div>
         <div class="bar">
           <textarea id="goal" placeholder="輸入這次流程的總目標，例如：整理 inbox 內的會議記錄，產出本週摘要"></textarea>
           <div class="acts">
@@ -1035,7 +1051,7 @@ try{const x=JSON.parse(localStorage.getItem("xlx3")||"null");if(x&&typeof x==="o
 if(!Array.isArray(S.llms)||!S.llms.length)S.llms=[{...DEMO_LLM}];
 if(!S.llms.some(l=>l.prov==="demo"))S.llms.push({...DEMO_LLM});
 if(!S.llms.some(l=>l.id===S.defLlm))S.defLlm=S.llms[0].id;
-S.ui=Object.assign({sound:true,names:true,pet:true},S.ui||{});
+S.ui=Object.assign({sound:true,names:true,pet:true},S.ui||{});S.schedules=Array.isArray(S.schedules)?S.schedules:[];
 S.mcp=Array.isArray(S.mcp)?S.mcp:[];S.roles=Array.isArray(S.roles)?S.roles:[];S.flows=Array.isArray(S.flows)?S.flows:[];
 if(!(S.cf<S.flows.length))S.cf=0;if(!(S.cl<S.llms.length))S.cl=0;
 if(S.wsKind==="fs"&&!window.showDirectoryPicker)S.wsKind="mem";
@@ -1122,6 +1138,8 @@ function cancelPending(){PEND.slice().forEach(x=>resolvePend(x,x.kind==="gate"?n
 function pendDraw(){
  const box=$("#pend"),n=PEND.length;
  $("#btnPend").hidden=!n;$("#pendN").textContent=n||"";
+ try{if(navigator.setAppBadge)n?navigator.setAppBadge(n):navigator.clearAppBadge()}catch(e){}
+ if(n&&document.hidden){const q=PEND[PEND.length-1];bgNotify("小蝦辦公室需要你核准",q.roleName+"："+(q.title||""),"pend")}
  document.title=(n?"("+n+") ":"")+"小蝦辦公室 · 多角色工作流";
  markUI();
  if(!n){box.hidden=true;box.innerHTML="";return}
@@ -1278,6 +1296,7 @@ async function mcpInit(sv){
  MCPS[sv.id].ver=(r&&r.protocolVersion)||"2025-03-26";MCPS[sv.id].ready=true;
  try{await mcpRpc(sv,"notifications/initialized",undefined,true)}catch(e){}}
 async function mcpReq(sv,method,params){
+if(/^builtin:\/\//.test(sv.url||""))return await builtinMcp(method,params);
  if(/^demo:\/\//.test(sv.url||"")){await sleep(300);return demoMcp(method,params)}
  if(!MCPS[sv.id]||!MCPS[sv.id].ready)await mcpInit(sv);
  try{return await mcpRpc(sv,method,params)}
@@ -1596,6 +1615,39 @@ async function nativeLlm(c,h,tools,sys){
 /* ---------- 離線示範「AI」:不連網，依角色可用的工具與職責，腳本化地回應 ----------
    它會依「角色有哪些工具」決定下一步動作，所以範例流程能用到全部 15 種工具；
    內容是依實際讀到的檔案臨場組出來的，並非真實 AI 的理解或翻譯。 */
+/* ---------- 內建 MCP：Chrome 瀏覽器內建工具（不需伺服器、不連網，直接在瀏覽器裡執行） ---------- */
+const BUILTIN_MCP={id:"builtin-chrome",name:"Chrome 內建工具",url:"builtin://chrome",tools:[
+ {name:"get_datetime",description:"取得目前的日期、時間與星期（使用這台裝置的時區）。",schema:{type:"object",properties:{},required:[]}},
+ {name:"get_device_info",description:"取得瀏覽器與裝置資訊：語言、平台、螢幕大小、網路狀態、是否以已安裝的 App 開啟。",schema:{type:"object",properties:{},required:[]}},
+ {name:"calculate",description:"計算四則運算式，例如 (12+8)*3/4。只接受數字與 + - * / % ( ) .",schema:{type:"object",properties:{expression:{type:"string"}},required:["expression"]}},
+ {name:"notify",description:"發出桌面／手機系統通知（首次需要瀏覽器授權）。",schema:{type:"object",properties:{title:{type:"string"},body:{type:"string"}},required:["body"]}},
+ {name:"speak",description:"用瀏覽器內建語音朗讀一段文字。",schema:{type:"object",properties:{text:{type:"string"},lang:{type:"string"}},required:["text"]}},
+ {name:"clipboard_write",description:"把文字複製到系統剪貼簿。",schema:{type:"object",properties:{text:{type:"string"}},required:["text"]}},
+ {name:"clipboard_read",description:"讀取系統剪貼簿的文字（瀏覽器會要求授權）。",schema:{type:"object",properties:{},required:[]}},
+ {name:"set_badge",description:"設定已安裝 App 圖示上的數字徽章，0 代表清除。",schema:{type:"object",properties:{count:{type:"number"}},required:["count"]}}]};
+async function builtinMcp(method,params){
+ if(method==="initialize")return{protocolVersion:"2025-03-26"};
+ if(method==="tools/list")return{tools:BUILTIN_MCP.tools.map(t=>({name:t.name,description:t.description,inputSchema:t.schema}))};
+ if(method!=="tools/call")return{};
+ const n=params&&params.name,a=(params&&params.arguments)||{},T=t=>({content:[{type:"text",text:t}]}),E=t=>({isError:true,content:[{type:"text",text:t}]});
+ try{
+  if(n==="get_datetime"){const d=new Date();return T(d.toLocaleString("zh-TW",{dateStyle:"full",timeStyle:"medium",hour12:false})+"\n時區："+Intl.DateTimeFormat().resolvedOptions().timeZone+"\nISO："+d.toISOString())}
+  if(n==="get_device_info"){const c=navigator.connection||{};return T(["語言："+navigator.language,"平台："+(navigator.userAgentData&&navigator.userAgentData.platform||navigator.platform||"未知"),"螢幕："+screen.width+"×"+screen.height+"（DPR "+devicePixelRatio+"）","網路："+(navigator.onLine?"連線中":"離線")+(c.effectiveType?"（"+c.effectiveType+"）":""),"處理器核心數："+(navigator.hardwareConcurrency||"未知"),"開啟方式："+(isStandalone()?"已安裝的 App 視窗":"一般瀏覽器分頁")].join("\n"))}
+  if(n==="calculate"){const ex=String(a.expression||"");if(!/^[\d\s+\-*/%().]+$/.test(ex))return E("只接受數字與 + - * / % ( ) .");const v=Function('"use strict";return ('+ex+')')();if(!Number.isFinite(v))return E("算式沒有有效結果");return T(ex.trim()+" = "+v)}
+  if(n==="notify"){const ok=await bgNotify(String(a.title||"小蝦辦公室"),String(a.body||""),"mcp",true);return ok?T("已發出系統通知。"):E("通知未發出：瀏覽器未授權通知，或不支援。可到「設定 → 排程」按「允許系統通知」。")}
+  if(n==="speak"){if(!("speechSynthesis" in window))return E("這個瀏覽器不支援語音朗讀");const u=new SpeechSynthesisUtterance(String(a.text||"").slice(0,500));u.lang=a.lang||"zh-TW";speechSynthesis.cancel();speechSynthesis.speak(u);return T("已開始朗讀（"+u.lang+"）。")}
+  if(n==="clipboard_write"){await navigator.clipboard.writeText(String(a.text||""));return T("已複製 "+String(a.text||"").length+" 字到剪貼簿。")}
+  if(n==="clipboard_read"){const t=await navigator.clipboard.readText();return T(t||"（剪貼簿是空的）")}
+  if(n==="set_badge"){if(!navigator.setAppBadge)return E("這個瀏覽器不支援 App 徽章（需安裝成 App）");const c=Math.max(0,Math.floor(+a.count||0));await(c?navigator.setAppBadge(c):navigator.clearAppBadge());return T("徽章已設為 "+c+"。")}
+  return E("內建工具沒有「"+n+"」");
+ }catch(e){return E("執行失敗："+(e&&e.message||e))}
+}
+function ensureBuiltinMcp(){
+ let m=S.mcp.find(x=>x.url===BUILTIN_MCP.url);
+ if(!m){m={id:BUILTIN_MCP.id,name:BUILTIN_MCP.name,url:BUILTIN_MCP.url,token:"",tools:[]};S.mcp.unshift(m)}
+ m.tools=BUILTIN_MCP.tools.map(t=>({...t}));
+}
+
 const DEMO_BOSS=["摘要員","翻譯員","程式碼審查員"];
 const DEMO_TASK={
  "摘要員":"讀取 會議記錄-週一.md 與 會議記錄-週四.md，濃縮成關鍵結論、風險與待辦事項。",
@@ -1655,9 +1707,24 @@ async function demoLlm(c,h,tools,sys){
   if(has("web_search")&&!did("web_search"))return one("web_search",{query:(goal.split(/[，。、\n]/)[0]||"週會").slice(0,14),lang:"zh"},"先搜尋一下背景資料。");
   const urls=[...ok("web_search").map(r=>r.out).join("\n").matchAll(/https?:\/\/[^\s"<>]+/g)].map(m=>m[0]);
   if(has("fetch_url")&&urls.length&&!did("fetch_url"))return one("fetch_url",{url:urls[0]},"讀取第一筆搜尋結果的網頁。");
-  if(has("mcp_call")&&!did("mcp_call")){
-    const cat=(tools.find(t=>t.name==="mcp_call")||{}).description||"",m=cat.match(/【([^】\n]+)】\n- ([\w\-.]+)：/);
-    if(m)return one("mcp_call",{server:m[1],tool:m[2],args:m[2]==="get_team_calendar"?{week:"本週"}:{}},"呼叫外部工具 "+m[1]+" / "+m[2]+"。");
+  if(has("mcp_call")){
+    const cat=(tools.find(t=>t.name==="mcp_call")||{}).description||"",ent=[];let cur="";
+    cat.split("\n").forEach(l=>{let m=l.match(/^【([^】]+)】$/);if(m){cur=m[1];return}m=l.match(/^- ([\w\-.]+)：/);if(m&&cur)ent.push({sv:cur,tool:m[1]})});
+    const want=[],add=t=>{const e=ent.find(x=>x.tool===t);if(e&&!want.some(w=>w.tool===t))want.push(e)};
+    if(/時間|日期|幾點|星期/.test(task))add("get_datetime");
+    if(/裝置|瀏覽器|平台/.test(task))add("get_device_info");
+    if(/計算/.test(task))add("calculate");
+    if(/朗讀|語音/.test(task))add("speak");
+    if(/剪貼簿|複製/.test(task))add("clipboard_write");
+    if(/通知|提醒/.test(task))add("notify");
+    if(/行事曆|會議/.test(task)||!want.length)add("get_team_calendar");
+    if(!want.length&&ent.length)want.push(ent[0]);
+    const k=did("mcp_call");
+    if(k<want.length){
+      const e=want[k],got=ok("mcp_call"),firstL=got[0]?strip(got[0].out).split("\n")[0]:"小蝦辦公室通知";
+      const args=e.tool==="get_team_calendar"?{week:"本週"}:e.tool==="calculate"?{expression:(task.match(/[\d(][\d\s+\-*/%().]{2,}[\d)]/)||["(12+8)*3/4"])[0]}:e.tool==="speak"?{text:firstL.replace(/\s+/g," ")}:e.tool==="clipboard_write"?{text:got.map(r=>strip(r.out)).join("\n").slice(0,500)}:e.tool==="notify"?{title:"小蝦辦公室",body:firstL}:{};
+      return one("mcp_call",{server:e.sv,tool:e.tool,args},"呼叫外部工具 "+e.sv+" / "+e.tool+"。");
+    }
   }
   if(has("run_js")&&reads.length&&!did("run_js")){
     const code=["const t="+JSON.stringify(reads[0].out)+";",
@@ -1701,8 +1768,8 @@ async function demoLlm(c,h,tools,sys){
     body="# 數據分析\n\n"+intro+"\n\n## 沙盒計算結果\n"+(j?j.out.replace(/【([^】]+)】/g,"$1：").replace(/\n\n+/g,"\n"):"（沒有取得計算結果，可能被拒絕執行）");
     tail=ok("write_file").length?"\n\n> 產出檔案："+wPath:"";
   }else if(has("mcp_call")){
-    const m=ok("mcp_call")[0];
-    body="# 外部工具回傳（行事曆）\n\n"+intro+"\n\n"+(m?strip(m.out):"（沒有取得外部工具的回傳：尚未設定 MCP 伺服器，或呼叫被拒絕）");
+    const rs=ok("mcp_call"),all=rs.map(r=>"### "+(r.args.tool||"")+"\n"+strip(r.out)).join("\n\n");
+    body="# 外部工具回傳"+(/行事曆/.test(all)?"（行事曆）":"")+"\n\n"+intro+"\n\n"+(rs.length?all:"（沒有取得外部工具的回傳：尚未設定 MCP 伺服器，或呼叫被拒絕）");
     tail=ok("write_file").length?"\n\n> 產出檔案："+wPath:"";
   }else{
     const bullets=reads.map(r=>r.out.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,5).map(x=>"- "+x.replace(/^[-*#>\s]+/,"")+"（來源："+r.args.path+"）").join("\n")).join("\n"),first=(prev.split("\n")[0]||"").trim();
@@ -1806,9 +1873,9 @@ async function runFlow(){
  }
  cancelPending();ofcAllIdle();if(ok)ofcCelebrate(f.steps.map(s=>s.role));
  pushHist(f.name,goal);if(activeTab==="set")renderSet();
- clearInterval(tick);chipSt=chipSt.map(x=>x==="run"?"err":x);progDraw(f);busy=false;setStat("結束，共 "+Math.floor((Date.now()-t0s)/1000)+" 秒");$("#run").hidden=false;$("#stop").hidden=true;ready();
+ clearInterval(tick);chipSt=chipSt.map(x=>x==="run"?"err":x);progDraw(f);busy=false;setStat("結束，共 "+Math.floor((Date.now()-t0s)/1000)+" 秒");$("#run").hidden=false;$("#stop").hidden=true;ready();return ok;
 }
-$("#run").onclick=runFlow;
+$("#run").onclick=()=>{runFlow()};
 $("#stop").onclick=()=>{if(ctl)ctl.abort();cancelPending()};
 $("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#run").disabled&&!$("#run").hidden)runFlow()});
 
@@ -1878,10 +1945,12 @@ function renderSet(){
   <label>預設使用<select data-p="defLlm" data-re="1">${llmOpts(S.defLlm)}</select></label>
   <div class="row" style="margin-top:8px"><select data-act="pickllm" aria-label="選擇要編輯的 AI">${S.llms.map((l,i)=>`<option value="${i}"${i==S.cl?" selected":""}>${esc(l.name)}</option>`).join("")}</select><button data-act="addllm">新增</button></div>
   ${L0?`${fld(`llms.${S.cl}.name`,"AI 名稱",L0.name)}${llmFields(`llms.${S.cl}`,L0)}<div class="row" style="margin-top:8px"><button data-act="testllm">測試連線</button><button data-act="delllm">刪除此 AI</button></div>`:""}</details></div>
+ ${schedHtml()}
  <div class="sec" id="sec-mcp"><details open><summary>外部工具 MCP（${S.mcp.length}）</summary>
   <p class="mut">連接 MCP（Model Context Protocol）伺服器，讓角色呼叫外部工具。使用 Streamable HTTP；伺服器需允許瀏覽器跨網域（CORS）連線，本機的 stdio 型伺服器可用 mcp-proxy 之類的轉接器。每次呼叫都需要你核准，回傳內容視為外部資料。</p>
-  ${S.mcp.map((m,i)=>`<div class="card">${fld(`mcp.${i}.name`,"名稱",m.name)}${fld(`mcp.${i}.url`,"MCP 端點網址（如 http://localhost:8000/mcp）",m.url)}${/^demo:/.test(m.url||"")?`<div class="mut">🧪 內建示範伺服器：不連網，在瀏覽器內模擬，讓「外部工具員」體驗核准流程。</div>`:""}${fld(`mcp.${i}.token`,"Bearer Token（選填）",m.token||"","password")}<div class="mut">${(m.tools||[]).length?"已探索 "+m.tools.length+" 個工具："+esc(m.tools.map(t=>t.name).join("、")):"尚未探索工具"}</div><div class="row" style="margin-top:6px"><button class="sm" data-act="discmcp" data-i="${i}">探索工具</button><button class="sm bad" data-act="delmcp" data-i="${i}">刪除</button></div></div>`).join("")}
+  ${S.mcp.map((m,i)=>`<div class="card">${fld(`mcp.${i}.name`,"名稱",m.name)}${/^(demo|builtin):/.test(m.url||"")?`<div class="mut">${/^builtin:/.test(m.url)?"🧰 內建 MCP：直接在瀏覽器內執行（時間、裝置資訊、計算、通知、語音、剪貼簿、App 徽章），不需伺服器、不連網；每次呼叫仍需你核准。":"🧪 內建示範伺服器：不連網，在瀏覽器內模擬，讓「外部工具員」體驗核准流程。"}</div>`:fld(`mcp.${i}.url`,"MCP 端點網址（如 http://localhost:8000/mcp）",m.url)+fld(`mcp.${i}.token`,"Bearer Token（選填）",m.token||"","password")}<div class="mut">${(m.tools||[]).length?"已探索 "+m.tools.length+" 個工具："+esc(m.tools.map(t=>t.name).join("、")):"尚未探索工具"}</div><div class="row" style="margin-top:6px"><button class="sm" data-act="discmcp" data-i="${i}">探索工具</button>${/^builtin:/.test(m.url||"")?"":`<button class="sm bad" data-act="delmcp" data-i="${i}">刪除</button>`}</div></div>`).join("")}
   <button data-act="addmcp">新增 MCP 伺服器</button><p class="mut">新增後記得按「探索工具」，再到「團隊」替角色勾選「外部工具」。</p></details></div>
+ ${pwaHtml()}
  <div class="sec"><details open><summary>辦公室選項</summary>
   <label class="chk"><input type="checkbox" data-ui="names" ${S.ui.names?"checked":""}> 顯示角色名稱與狀態</label>
   <label class="chk"><input type="checkbox" data-ui="pet" ${S.ui.pet?"checked":""}> 辦公室貓咪</label>
@@ -1948,9 +2017,12 @@ function sample(){
   st(sm,"（備援，示範跳轉）外部工具沒查到行事曆時，才改由摘要員做摘要；查到了就會被跳過。"),
   st(sl,"把前面的成果做成簡報。",{when:"行事曆"}),
   st(tr,"（示範條件）只有上一步輸出提到「需要英文版」才會翻譯，否則略過。",{when:"需要英文版"})]});
+ S.flows.push({id:uid(),name:"④ Chrome 內建 MCP",maxLoops:0,demoGoal:"查詢現在時間與這台裝置的資訊，計算、朗讀並發出通知",steps:[
+  st(ex,"查詢現在時間與這台裝置的資訊，並計算 (120+80)*3/4，再用語音朗讀並發出系統通知，結果寫入 tool-result.md。")]});
+ S.schedules.push({id:uid(),name:"每天早上整理會議記錄（示範，預設停用）",flow:S.flows[S.flows.length-4].id,goal:"",kind:"daily",every:60,time:"09:00",days:[1,2,3,4,5],at:"",enabled:false,catchup:true,last:0,next:0,note:""});
  if(!S.mcp.some(x=>x.url===DEMO_MCP.url))S.mcp.push({id:uid(),name:DEMO_MCP.name,url:DEMO_MCP.url,token:"",tools:DEMO_MCP.tools.map(t=>({...t}))});
  ensureDesks();
- S.cf=S.flows.length-3;seedInbox();save();goalHint();
+ S.cf=S.flows.length-4;seedInbox();save();goalHint();
 }
 
 /* ---------- 設定頁事件 ---------- */
@@ -1972,6 +2044,7 @@ async function pickFolder(){
 }
 async function sideClick(e){
  const b=e.target.closest("button");if(!b||!b.dataset.act)return;const a=b.dataset.act,f=S.flows[S.cf];
+ if(extraAct(a,b))return;
  if(a==="wsmem")S.wsKind="mem";
  else if(a==="wsfs"){
   if(fsRoot){try{if(await fsRoot.queryPermission({mode:"readwrite"})!=="granted"&&await fsRoot.requestPermission({mode:"readwrite"})!=="granted"){fsRoot=null;fsMsg="需要重新授權，請再選擇一次資料匣。"}}catch(x){}S.wsKind="fs"}
@@ -2005,21 +2078,22 @@ async function sideClick(e){
  else if(a==="addstep"){if(!S.roles.length){toast("請先新增角色");return}f.steps.push({role:S.roles[0].id,type:"work",task:"",gate:false})}
  else if(a==="rm")f.steps.splice(+b.dataset.j,1);
  else if(a==="up"||a==="dn"){const j=+b.dataset.j,k=a==="up"?j-1:j+1;if(k<0||k>=f.steps.length)return;[f.steps[j],f.steps[k]]=[f.steps[k],f.steps[j]]}
- else if(a==="sample"){if(S.roles.length&&!confirm("範例會新增 12 個角色、3 條流程與示範檔案，繼續？"))return;sample();toast("已載入範例")}
+ else if(a==="sample"){if(S.roles.length&&!confirm("範例會新增 12 個角色、4 條流程、1 個示範排程與示範檔案，繼續？"))return;sample();toast("已載入範例")}
  else if(a==="help"){openHelp();return}
  else if(a==="wipe"){
   if(!confirm("清除所有資料（設定、角色、流程、虛擬工作區、辦公室佈局）並重置？"))return;
   try{localStorage.removeItem("xlx3");localStorage.removeItem("xlx3h");localStorage.removeItem(HELP_KEY)}catch(x){}
   await hPut(null,"root");await hPut({files:{},dirs:[]},"mem");location.reload();return}
  else if(a==="export"){
-  const c=JSON.parse(JSON.stringify({v:5,llms:S.llms,mcp:S.mcp,defLlm:S.defLlm,roles:S.roles,flows:S.flows,autoWrite:S.autoWrite,layout:O.layout}));c.llms.forEach(l=>l.key="");(c.mcp||[]).forEach(m=>m.token="");
+  const c=JSON.parse(JSON.stringify({v:5,llms:S.llms,mcp:S.mcp,defLlm:S.defLlm,roles:S.roles,flows:S.flows,autoWrite:S.autoWrite,schedules:S.schedules,layout:O.layout}));c.llms.forEach(l=>l.key="");(c.mcp||[]).forEach(m=>m.token="");
   dl(JSON.stringify(c,null,2),"workstream.json","application/json");return
  }else if(a==="import"){
   const i=document.createElement("input");i.type="file";i.accept=".json";
   i.onchange=async()=>{try{
    const x=JSON.parse(await i.files[0].text());if(!x.roles||!x.flows)throw 0;
    const old=S.llms,ui=S.ui,ws=S.wsKind,oldM=S.mcp;S={...S,...x,cf:0,cl:0};S.ui=ui;S.wsKind=ws;S.mcp=Array.isArray(S.mcp)?S.mcp:[];S.mcp.forEach(m=>{const o=oldM.find(y=>y.id===m.id);if(o&&!m.token)m.token=o.token});
-   if(!Array.isArray(S.llms)||!S.llms.length)S.llms=old;
+   S.schedules=Array.isArray(S.schedules)?S.schedules:[];ensureBuiltinMcp();S.schedules.forEach((s,k)=>schedRecalc(k));
+    if(!Array.isArray(S.llms)||!S.llms.length)S.llms=old;
    S.llms.forEach(l=>{const o=old.find(y=>y.id===l.id);if(o&&!l.key)l.key=o.key});
    if(!S.llms.some(l=>l.prov==="demo"))S.llms.push({...DEMO_LLM});
    if(!S.llms.find(l=>l.id===S.defLlm))S.defLlm=S.llms[0].id;
@@ -2030,13 +2104,31 @@ async function sideClick(e){
  }
  save();renderAll();
 }
+async function runSchedNow(s){
+ if(busy||schedBusy){toast("目前有流程在執行");return}
+ schedBusy=true;const keep={enabled:s.enabled,next:s.next};
+ try{s.enabled=true;s.next=Date.now();await runSched(s,Date.now())}catch(e){s.note="失敗："+(e&&e.message||e)}
+ finally{s.enabled=keep.enabled;s.next=keep.next;schedBusy=false;save();schedBar();if(activeTab==="set")renderSet()}
+}
+function extraAct(a,b){
+ const i=+b.dataset.i;
+ if(a==="addsched"){const f=S.flows[S.cf];if(!f){toast("請先建立流程");return true}S.schedules.push({id:uid(),name:"新排程",flow:f.id,goal:"",kind:"daily",every:60,time:"09:00",days:[1,2,3,4,5],at:"",enabled:false,catchup:true,last:0,next:0,note:""});save();renderSet();toast("已新增排程（預設停用，設定好後勾選「啟用」）");return true}
+ if(a==="delsched"){S.schedules.splice(i,1);save();schedBar();renderSet();wakeSync();return true}
+ if(a==="runsched"){const s=S.schedules[i];if(s)runSchedNow(s);return true}
+ if(a==="notifyperm"){if(!("Notification" in window)){toast("這個瀏覽器不支援通知");return true}Notification.requestPermission().then(()=>renderSet());return true}
+ if(a==="installapp"){installApp();return true}
+ if(a==="persist"){if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().then(v=>{persistState=v?"已持久化":"瀏覽器未允許（常用或安裝成 App 後較容易通過）";renderSet();toast(persistState)});else toast("這個瀏覽器不支援");return true}
+ return false;
+}
 function sideInput(e){
  const t=e.target;
  if(t.dataset.tool){const [i,n]=t.dataset.tool.split(":");const a=S.roles[i].tools;S.roles[i].tools=t.checked?[...new Set([...a,n])]:a.filter(x=>x!==n);save();return}
- if(t.dataset.ui){S.ui[t.dataset.ui]=t.checked;save();if(t.dataset.ui==="pet"&&t.checked&&!O.pets.length)addPet();if(t.dataset.ui==="sound")syncSound();return}
+ if(t.dataset.day){const p=t.dataset.day.split(":").map(Number),s=S.schedules[p[0]];if(s){const st=new Set(s.days||[]);t.checked?st.add(p[1]):st.delete(p[1]);s.days=[...st];schedRecalc(p[0]);schedBar()}return}
+ if(t.dataset.ui){S.ui[t.dataset.ui]=t.checked;save();if(t.dataset.ui==="pet"&&t.checked&&!O.pets.length)addPet();if(t.dataset.ui==="sound")syncSound();if(t.dataset.ui==="keepAwake")wakeSync();return}
  if(!t.dataset.p)return;
  const v=t.type==="checkbox"?t.checked:t.type==="number"?Number(t.value):t.value;
  setPath(t.dataset.p,v);
+ {const ms=/^schedules\.(\d+)\.(\w+)$/.exec(t.dataset.p);if(ms){schedRecalc(+ms[1]);schedBar()}}
  if(/^mcp\.\d+\.(url|token)$/.test(t.dataset.p)){const m0=S.mcp[+t.dataset.p.split(".")[1]];if(m0)delete MCPS[m0.id]}
  if(/^roles\.\d+\.name$/.test(t.dataset.p)){ofcSync();progDraw();fillFrom();renderDetail(true)}
  if(t.dataset.prov){const base=t.dataset.prov.replace(/\.prov$/,"");const o=base.split(".").reduce((a,k)=>a[k],S);o.base=PRESET[v][0];o.model=PRESET[v][1];save();renderAll()}
@@ -2150,12 +2242,17 @@ const HELP=[
     <li><b>外部工具（MCP）</b>：到「設定 → 外部工具 MCP」新增伺服器並按「探索工具」，再替角色勾選「外部工具」。每次呼叫都要核准，回傳內容視為外部資料（之後的寫檔會一律詢問）。</li></ul>
     <p class="tip">Word／PDF 解析函式庫首次使用時才從網路載入。MCP 伺服器需允許瀏覽器 CORS 連線；也可以到「設定 → 🧪 自我測試」驗證沙盒是否正常。</p>`},
   {t:"⑪ 範例案例對照表",tab:"run",tg:"#goal",h:`<span class="where">位置：「執行」分頁・流程選單</span>
-     <p>範例內建 <b>12 位角色、3 條流程</b>，全部用「離線示範」AI 就能跑完，並用到全部 15 種工具。選流程後，輸入框會自動帶入建議的總目標，直接按「▶ 執行流程」。</p>
+     <p>範例內建 <b>12 位角色、4 條流程</b>，全部用「離線示範」AI 就能跑完，並用到全部 15 種工具。選流程後，輸入框會自動帶入建議的總目標，直接按「▶ 執行流程」。</p>
      <ul><li><b>① 資料整理 → 寫作 → 審稿 → 歸檔</b>：研究員（列目錄、讀檔、搜尋）→ 撰稿員（寫檔；被退回後用<b>取代</b>、<b>附加</b>修訂）→ 審稿員（第一次故意 FAIL，觸發<b>退回</b>）→ 歸檔員（<b>人工核准</b>後寫 final.md、附加 index.md、<b>刪檔</b>）。</li>
      <li><b>② 主管指派</b>：主管先看工作區，再<b>同一輪並行</b>指派摘要員、翻譯員、程式碼審查員，最後抽查翻譯員的產出並彙整。</li>
-     <li><b>③ 文件＋數據＋外部工具 → 簡報</b>：文件分析員（<b>讀 Word</b>）與資料分析員（<b>跑程式</b>算 CSV）<b>並行</b>；外部工具員呼叫 <b>MCP</b> 查行事曆，並設定「<b>跳轉</b>」跳過備援的摘要員；簡報製作員（<b>搜尋網路、讀網頁、做簡報、記住</b>）因「<b>條件</b>」成立而執行；最後的翻譯員因條件不符被略過。</li></ul>
-     <p class="tip">離線示範的替身：<code>demo.xiaoxia.local</code> 是內建的示範網站與搜尋結果、「示範伺服器」是內建的 MCP、「專案週報.docx」由程式即時產生。它們不連網，但<b>核准流程與真實工具完全一樣</b>。示範 AI 是腳本，翻譯只換固定詞彙；換成真實 AI 後，同樣的角色與流程就會真的思考。</p>`}
-
+     <li><b>③ 文件＋數據＋外部工具 → 簡報</b>：文件分析員（<b>讀 Word</b>）與資料分析員（<b>跑程式</b>算 CSV）<b>並行</b>；外部工具員呼叫 <b>MCP</b> 查行事曆，並設定「<b>跳轉</b>」跳過備援的摘要員；簡報製作員（<b>搜尋網路、讀網頁、做簡報、記住</b>）因「<b>條件</b>」成立而執行；最後的翻譯員因條件不符被略過。</li><li><b>④ Chrome 內建 MCP</b>：外部工具員呼叫「Chrome 內建工具」查時間與裝置資訊、計算、語音朗讀、發系統通知（每次呼叫都要核准）。</li></ul>
+     <p class="tip">離線示範的替身：<code>demo.xiaoxia.local</code> 是內建的示範網站與搜尋結果、「示範伺服器」是內建的 MCP、「專案週報.docx」由程式即時產生。它們不連網，但<b>核准流程與真實工具完全一樣</b>。示範 AI 是腳本，翻譯只換固定詞彙；換成真實 AI 後，同樣的角色與流程就會真的思考。</p>`},
+  {t:"⑫ 排程、一句話建流程、內建 MCP、安裝成 App",tab:"run",tg:"#genBox",h:`<span class="where">位置：「執行」分頁最上方；「設定」分頁</span>
+     <ul><li><b>✨ 一句話建立流程</b>：用一段話描述要做的事（可含「每天早上 9 點」這類時間），系統會自動拆成步驟、指派給最合適的角色，必要時一併建立排程。離線示範用規則判斷；選了真實 AI 則由 AI 規劃，失敗會自動改用規則。</li>
+     <li><b>排程</b>（設定 → 排程）：單次、每隔一段時間、每天、每週指定星期。<b>頁面或已安裝的 App 開著才會執行</b>；錯過的可在開啟時補跑；需要核准時會發系統通知。</li>
+     <li><b>Chrome 內建 MCP</b>：「Chrome 內建工具」不需伺服器，提供時間、裝置資訊、計算、通知、語音朗讀、剪貼簿、App 徽章，給有「外部工具」的角色使用，每次呼叫仍需核准。範例流程④可直接體驗。</li>
+     <li><b>安裝成 App（PWA）</b>：用 https 或 localhost 開啟資料夾版，頂欄會出現「⬇ 安裝」；iPhone 用 Safari 的「加入主畫面」。安裝後可離線開啟、有獨立視窗與圖示徽章。</li></ul>
+     <p class="tip">用 file:// 直接開單檔仍可使用全部功能，只是不能安裝與離線快取。</p>`}
 ];
 let hi=0,hOpener=null,hTab="run";
 const helpRaw=s=>!s.tg?null:(typeof s.tg==="function"?s.tg():$(s.tg));
@@ -2220,6 +2317,265 @@ document.addEventListener("keydown",e=>{
 },true);
 const helpSeen=()=>{try{return localStorage.getItem(HELP_KEY)==="1"}catch(e){return true}};
 
+/* ---------- 排程：定期／不定期自動執行流程 ---------- */
+const pad2=n=>String(n).padStart(2,"0"),DAYN=["日","一","二","三","四","五","六"];
+function parseHM(t){const m=/^(\d{1,2}):(\d{2})$/.exec(t||"");return m?[Math.min(23,+m[1]),Math.min(59,+m[2])]:[9,0]}
+function schedNext(s,from){
+ from=from||Date.now();
+ if(s.kind==="once"){const t=s.at?new Date(s.at).getTime():0;return t>from?t:0}
+ if(s.kind==="interval")return from+Math.max(1,+s.every||60)*60000;
+ const hm=parseHM(s.time);
+ for(let d=0;d<8;d++){const x=new Date(from);x.setDate(x.getDate()+d);x.setHours(hm[0],hm[1],0,0);
+  if(x.getTime()<=from)continue;
+  if(s.kind==="weekly"&&!(s.days||[]).includes(x.getDay()))continue;
+  return x.getTime()}
+ return 0;
+}
+const fmtT=t=>t?new Date(t).toLocaleString("zh-TW",{month:"numeric",day:"numeric",weekday:"short",hour:"2-digit",minute:"2-digit",hour12:false}):"—";
+function schedDesc(s){
+ if(s.kind==="once")return "單次 "+(s.at?s.at.replace("T"," "):"（未設定時間）");
+ if(s.kind==="interval"){const e=+s.every||60;return "每隔 "+(e%60===0?e/60+" 小時":e+" 分鐘")}
+ if(s.kind==="weekly")return "每週"+((s.days||[]).slice().sort().map(d=>DAYN[d]).join("、")||"（未選星期）")+" "+(s.time||"09:00");
+ return "每天 "+(s.time||"09:00");
+}
+function schedRecalc(i){const s=S.schedules[i];if(!s)return;s.next=s.enabled?schedNext(s):0;save()}
+function schedBar(){
+ const el=$("#schedBar");if(!el)return;
+ const a=S.schedules.filter(s=>s.enabled&&s.next).sort((x,y)=>x.next-y.next)[0];
+ el.hidden=!a;if(a)el.textContent="⏰ 下次排程：「"+a.name+"」"+fmtT(a.next)+"（"+schedDesc(a)+"）";
+}
+let schedBusy=false,wl=null;
+async function schedTick(){
+ if(schedBusy||busy)return;
+ const now=Date.now(),due=S.schedules.find(s=>s.enabled&&s.next&&s.next<=now);
+ if(!due)return;
+ schedBusy=true;
+ try{await runSched(due,now)}catch(e){due.note="失敗："+(e&&e.message||e);save()}
+ finally{schedBusy=false;schedBar();if(activeTab==="set")renderSet()}
+}
+async function runSched(s,now){
+ const fi=S.flows.findIndex(f=>f.id===s.flow);
+ if(fi<0){s.enabled=false;s.next=0;s.note="找不到流程，已停用";save();bgNotify("排程「"+s.name+"」已停用","找不到對應的流程。","sched");return}
+ if(!wsReady()){s.next=now+300000;s.note="工作區尚未就緒，5 分鐘後再試";save();return}
+ const late=now-s.next>120000;
+ if(late&&s.catchup===false){s.next=s.kind==="once"?0:schedNext(s,now);if(s.kind==="once")s.enabled=false;s.note="已略過錯過的排程";save();return}
+ s.last=now;
+ if(s.kind==="once"){s.next=0;s.enabled=false}else s.next=schedNext(s,now);   // 先排下一次，長流程不會重複觸發
+ s.note="執行中…";save();
+ const g=$("#goal"),keep=g.value;
+ S.cf=fi;g.value=s.goal||S.flows[fi].demoGoal||s.name;renderAll();
+ toast("排程「"+s.name+"」開始執行"+(late?"（補跑）":""));
+ const ok=await runFlow();
+ s.note=(ok?"成功":"未完成")+" · "+new Date().toLocaleString("zh-TW",{hour12:false});save();
+ if(!busy)g.value=keep;
+ bgNotify("排程「"+s.name+"」"+(ok?"已完成":"未完成"),S.flows[fi]?S.flows[fi].name:"","sched");
+}
+function schedInit(){
+ const now=Date.now();
+ S.schedules.forEach(s=>{if(s.enabled&&!s.next)s.next=schedNext(s,now)});
+ setInterval(schedTick,15000);setTimeout(schedTick,2500);schedBar();wakeSync();
+}
+async function wakeSync(){
+ const want=S.ui.keepAwake&&S.schedules.some(s=>s.enabled);
+ try{
+  if(want&&!wl&&navigator.wakeLock&&document.visibilityState==="visible"){wl=await navigator.wakeLock.request("screen");wl.addEventListener("release",()=>{wl=null})}
+  else if(!want&&wl){await wl.release();wl=null}
+ }catch(e){}
+}
+document.addEventListener("visibilitychange",wakeSync);
+const notifState=()=>!("Notification" in window)?"不支援":Notification.permission==="granted"?"已允許":Notification.permission==="denied"?"已封鎖":"未設定";
+function schedCard(s,i){
+ const fo=S.flows.map(f=>`<option value="${f.id}"${f.id===s.flow?" selected":""}>${esc(f.name)}</option>`).join("");
+ const kinds=[["once","單次（不定期）"],["interval","每隔一段時間"],["daily","每天"],["weekly","每週指定星期"]];
+ const when=s.kind==="once"?fld(`schedules.${i}.at`,"執行時間",s.at||"","datetime-local")
+  :s.kind==="interval"?fld(`schedules.${i}.every`,"每隔幾分鐘（60＝1 小時，1440＝1 天）",s.every||60,"number")
+  :s.kind==="weekly"?`<div class="row">${[1,2,3,4,5,6,0].map(d=>`<label class="chk"><input type="checkbox" data-day="${i}:${d}" ${(s.days||[]).includes(d)?"checked":""}>週${DAYN[d]}</label>`).join("")}</div>${fld(`schedules.${i}.time`,"時間",s.time||"09:00","time")}`
+  :fld(`schedules.${i}.time`,"時間",s.time||"09:00","time");
+ return `<div class="card"><div class="row"><label class="chk"><input type="checkbox" data-re="1" data-p="schedules.${i}.enabled" ${s.enabled?"checked":""}><b>啟用</b></label><span class="mut grow">${esc(schedDesc(s))}</span></div>
+  ${fld(`schedules.${i}.name`,"名稱",s.name)}
+  <label>執行的流程<select data-p="schedules.${i}.flow" data-re="1">${fo}</select></label>
+  ${area(`schedules.${i}.goal`,"總目標（留空＝用流程的建議目標）",s.goal||"",2)}
+  <label>頻率<select data-p="schedules.${i}.kind" data-re="1">${kinds.map(k=>`<option value="${k[0]}"${s.kind===k[0]?" selected":""}>${k[1]}</option>`).join("")}</select></label>
+  ${when}
+  <label class="chk"><input type="checkbox" data-p="schedules.${i}.catchup" ${s.catchup!==false?"checked":""}>開啟 App 時補跑錯過的排程</label>
+  <div class="mut">下次：${s.enabled?fmtT(s.next):"（未啟用）"}　上次：${esc(s.note||"—")}</div>
+  <div class="row" style="margin-top:6px"><button class="sm" data-act="runsched" data-i="${i}">立即執行一次</button><button class="sm bad" data-act="delsched" data-i="${i}">刪除</button></div></div>`;
+}
+function schedHtml(){
+ return `<div class="sec" id="sec-sched"><details open><summary>排程（${S.schedules.filter(s=>s.enabled).length}／${S.schedules.length} 啟用）</summary>
+  <p class="mut">定期或不定期自動執行流程。瀏覽器的限制：<b>只有這個頁面（或已安裝的 App 視窗）開著時才會執行</b>，關閉後不會在背景跑；錯過的排程會在下次開啟時補跑。需要核准的動作仍會等你確認，並用系統通知提醒。</p>
+  ${S.schedules.map(schedCard).join("")||'<p class="mut">（還沒有排程）</p>'}
+  <div class="row"><button data-act="addsched">新增排程</button><button class="sm" data-act="notifyperm">系統通知：${notifState()}</button></div>
+  <label class="chk"><input type="checkbox" data-ui="keepAwake" ${S.ui.keepAwake?"checked":""}> 有排程時保持螢幕喚醒（避免裝置休眠而錯過）</label></details></div>`;
+}
+
+/* ---------- 一句話建立流程：自動拆步驟、指派角色，必要時一併建立排程 ---------- */
+const GEN_RULES=[
+ {k:/簡報|投影片|slides?/i,tool:"make_slides",name:"簡報"},
+ {k:/word|docx|pdf|文件分析|週報/i,tool:"read_doc",name:"文件"},
+ {k:/計算|統計|數據|csv|平均|合計|修復率/i,tool:"run_js",name:"資料"},
+ {k:/行事曆|外部工具|mcp|通知|提醒|剪貼簿|朗讀|現在時間|裝置資訊/i,tool:"mcp_call",name:"外部"},
+ {k:/翻譯|譯成|英文版|英譯|translate/i,name:"翻譯"},
+ {k:/程式碼|code ?review|bug|資安/i,name:"程式碼"},
+ {k:/審稿|審核|校對|把關|檢查|驗證/,name:"審稿",review:true},
+ {k:/歸檔|存檔|封存|備份/,name:"歸檔",tool:"write_file"},
+ {k:/寫成|撰寫|撰稿|草稿|寫一份|寫文件|產出.*(文件|報告)/,name:"撰稿",tool:"write_file"},
+ {k:/摘要|濃縮|總結/,name:"摘要",tool:"read_file"},
+ {k:/搜尋網路|上網|網路搜尋|網頁/,tool:"web_search",name:"簡報"},
+ {k:/整理|蒐集|收集|讀取|研究|彙整|閱讀|盤點/,name:"研究",tool:"read_file"},
+ {k:/主管|分派|指派|分工/,name:"主管",tool:"delegate"}];
+const SCHED_RE=/每\s*\d+\s*(?:分鐘|分|小時|個小時)|每(?:個)?小時|每(?:天|日)|天天|平日|工作日|每(?:週|周|星期|禮拜)[一二三四五六日天、和及]*|\d+\s*(?:分鐘|小時)後|(?:今天|明天|後天)|(?:上午|早上|早晨|凌晨|中午|下午|晚上|傍晚)?\s*\d{1,2}\s*(?:點|時|:|：)\s*(?:半|\d{1,2}\s*分?)?/g;
+function parseSchedule(text){
+ const t=String(text||"");
+ const hm=()=>{
+  const m=/(上午|早上|早晨|凌晨|中午|下午|晚上|傍晚)?\s*(\d{1,2})\s*(?:點|時|:|：)\s*(半|(\d{1,2})\s*分?)?/.exec(t);
+  if(!m)return null;let h=+m[2],mi=m[3]==="半"?30:(+m[4]||0);
+  if(/下午|晚上|傍晚/.test(m[1]||"")&&h<12)h+=12;if(m[1]==="中午"&&h<11)h+=12;if(h>23)return null;
+  return pad2(h)+":"+pad2(mi);
+ };
+ let m;
+ if((m=/每\s*(\d+)\s*(分鐘|分|小時|個小時)/.exec(t)))return{kind:"interval",every:(+m[1])*(/小時/.test(m[2])?60:1)};
+ if(/每(個)?小時/.test(t))return{kind:"interval",every:60};
+ if(/平日|工作日|週一到週五|週一至週五/.test(t))return{kind:"weekly",days:[1,2,3,4,5],time:hm()||"09:00"};
+ if((m=/每(?:週|周|星期|禮拜)([一二三四五六日天、和及]+)/.exec(t))){const ds=[...m[1]].filter(c=>"一二三四五六日天".includes(c)).map(c=>c==="天"?0:"日一二三四五六".indexOf(c));return{kind:"weekly",days:[...new Set(ds)],time:hm()||"09:00"}}
+ if(/每(?:天|日)|天天/.test(t))return{kind:"daily",time:hm()||"09:00"};
+ if((m=/(\d+)\s*(分鐘|小時)後/.exec(t))){const d=new Date(Date.now()+(+m[1])*(m[2]==="小時"?3600000:60000));return{kind:"once",at:d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())+"T"+pad2(d.getHours())+":"+pad2(d.getMinutes())}}
+ if((m=/(今天|明天|後天)/.exec(t))){const t2=hm()||"09:00",d=new Date();d.setDate(d.getDate()+({"今天":0,"明天":1,"後天":2})[m[1]]);return{kind:"once",at:d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())+"T"+t2}}
+ return null;
+}
+function genResolve(rule,clause){
+ const byName=S.roles.find(r=>clause.includes(r.name));if(byName)return byName;
+ const byRule=S.roles.find(r=>r.name.includes(rule.name));if(byRule)return byRule;
+ if(rule.review)return S.roles.find(r=>/PASS/.test(r.sys||""))||null;
+ return rule.tool?S.roles.find(r=>r.tools.includes(rule.tool))||null:null;
+}
+function heuristicPlan(text){
+ const clauses=String(text).split(/[，,。；;\n]|然後|接著|之後|最後|並且|後(?!天)/).map(x=>x.trim()).filter(Boolean);
+ const steps=[];
+ clauses.forEach(cl=>{
+  const rule=GEN_RULES.find(r=>r.k.test(cl))||(S.roles.some(r=>cl.includes(r.name))?{name:"",tool:""}:null);
+  if(!rule)return;
+  const role=genResolve(rule,cl);if(!role)return;
+  const isRev=!!rule.review||(/PASS/.test(role.sys||"")&&S.roles.some(r=>cl.includes(r.name)&&r===role));
+  const prevS=steps[steps.length-1];
+  if(prevS&&prevS.role===role.id&&!isRev&&prevS.type==="work"){prevS.task+="；"+cl.replace(SCHED_RE,"").trim();return}
+  const cleaned=cl.replace(SCHED_RE,"").replace(/^[\s，,、]*(?:再|並|同時|然後|請)*[\s，,、]*/,"").trim()||cl;
+  const st={role:role.id,type:isRev?"review":"work",task:isRev?"審核上一步的成果是否合格。":cleaned,gate:/核准|經我|人工確認|我確認/.test(cl)};
+  if(/同時|並行|同步/.test(cl)&&prevS&&prevS.type==="work"&&st.type==="work")st.par=true;
+  steps.push(st);
+ });
+ return{steps,goal:String(text).trim()};
+}
+async function aiPlan(text,cfg){
+ const roles=S.roles.map(r=>"- "+r.name+"：職責「"+(r.sys||"").replace(/\s+/g," ").slice(0,70)+"」；工具："+r.tools.join("、")).join("\n");
+ const sys="你是流程規劃師，只輸出 JSON，不要任何說明或 Markdown 圍欄。";
+ const prompt="可用角色：\n"+roles+"\n\n使用者需求：\n"+text+"\n\n請拆成 2 到 8 個步驟並指派給最合適的角色，輸出格式：\n{\"name\":\"流程名稱\",\"goal\":\"一句話總目標\",\"steps\":[{\"role\":\"角色名稱(必須出自上面清單)\",\"type\":\"work 或 review\",\"task\":\"這一步要做什麼\",\"gate\":false,\"par\":false}],\"schedule\":{\"kind\":\"none|once|interval|daily|weekly\",\"time\":\"HH:MM\",\"days\":[1],\"every\":60,\"at\":\"YYYY-MM-DDTHH:MM\"}}\n規則：review 步驟必須接在 work 之後，內容是審核上一步；需要使用者先確認才 gate 為 true；可同時進行的相鄰 work 步驟 par 為 true；沒有時間需求 schedule.kind 填 none。今天是 "+new Date().toLocaleDateString("zh-TW")+"。";
+ if(!busy)ctl=new AbortController();
+ const r=await withRetry(()=>llm(cfg,[{r:"u",t:prompt}],[],sys));
+ const a=r.t.indexOf("{"),b=r.t.lastIndexOf("}");if(a<0||b<a)throw new Error("AI 沒有回傳 JSON");
+ const j=JSON.parse(r.t.slice(a,b+1));
+ const steps=(Array.isArray(j.steps)?j.steps:[]).map(s=>{
+  const nm=String(s.role||"").trim(),role=S.roles.find(x=>x.name===nm)||S.roles.find(x=>nm&&(x.name.includes(nm)||nm.includes(x.name)));
+  if(!role)return null;
+  return{role:role.id,type:s.type==="review"?"review":"work",task:String(s.task||"").slice(0,300),gate:!!s.gate,...(s.par?{par:true}:{})};
+ }).filter(Boolean);
+ return{steps,goal:String(j.goal||text).trim(),name:j.name,schedule:j.schedule&&j.schedule.kind!=="none"?j.schedule:null};
+}
+function tidySteps(steps){
+ const out=[];
+ steps.forEach((s,i)=>{
+  if(s.type==="review"&&!out.some(x=>x.type==="work"))return;
+  if(i===0||!out.length||out[out.length-1].type!=="work")delete s.par;
+  out.push(s);
+ });
+ return out;
+}
+async function genFlow(){
+ const box=$("#genText"),out=$("#genOut"),text=box.value.trim();
+ if(!text){toast("請先輸入一段描述");box.focus();return}
+ if(!S.roles.length){toast("請先新增角色（或載入範例）");return}
+ const btn=$("#genBtn");btn.disabled=true;btn.textContent="規劃中…";out.textContent="";
+ try{
+  const cfg=S.llms.find(x=>x.id===S.defLlm)||S.llms[0];let plan,note="規則式規劃（離線示範模式）";
+  if(cfg.prov!=="demo"){
+   try{plan=await aiPlan(text,cfg);note="由「"+cfg.name+"」規劃"}
+   catch(e){plan=null;note="AI 回應無法使用（"+(e.message||e)+"），改用規則式規劃"}
+  }
+  if(!plan||!plan.steps.length){plan=heuristicPlan(text);if(cfg.prov!=="demo"&&!/改用/.test(note))note+="（AI 沒有產出可用步驟，改用規則式）"}
+  plan.steps=tidySteps(plan.steps);
+  if(!plan.steps.length){out.innerHTML="<span class=\"bad-t\">沒辦法從這段話判斷要做什麼。請描述動作，例如「整理資料、寫成文件、請審稿員檢查、歸檔」，或到「團隊」手動建立。</span>";return}
+  const hasRev=plan.steps.some(s=>s.type==="review");
+  const sched=plan.schedule||parseSchedule(text);
+  const nm=plan.name||("✨ "+(text.replace(SCHED_RE,"").replace(/^[\s，。,、]+/,"").slice(0,14)||"自動生成流程"));
+  const f={id:uid(),name:nm.startsWith("✨")?nm:"✨ "+nm,maxLoops:hasRev?2:0,demoGoal:plan.goal,steps:plan.steps};
+  S.flows.push(f);S.cf=S.flows.length-1;
+  let sNote="";
+  if($("#genSched").checked&&sched){
+   const s={id:uid(),name:f.name.replace(/^✨\s*/,"")+"（排程）",flow:f.id,goal:"",kind:sched.kind,every:sched.every||60,time:sched.time||"09:00",days:sched.days||[1],at:sched.at||"",enabled:true,catchup:true,last:0,next:0,note:""};
+   S.schedules.push(s);schedRecalc(S.schedules.length-1);sNote="；已建立排程：「"+schedDesc(s)+"」，下次 "+fmtT(s.next);
+   if("Notification" in window&&Notification.permission==="default")Notification.requestPermission().then(()=>{if(activeTab==="set")renderSet()});
+  }
+  save();renderAll();$("#goal").value=plan.goal;lastDG=plan.goal;schedBar();
+  out.innerHTML="<b>已建立「"+esc(f.name)+"」</b>（"+esc(note)+esc(sNote)+"）<ol class=\"gen\">"+plan.steps.map(s=>{const r=S.roles.find(x=>x.id===s.role);return"<li><b>"+esc(r?r.name:"?")+"</b>"+(s.type==="review"?"（審核）":"")+(s.par?"（並行）":"")+(s.gate?"（需核准）":"")+" — "+esc(s.task)+"</li>"}).join("")+"</ol><span class=\"mut\">可到「團隊」微調；總目標已填入上方。</span>";
+  if($("#genRun").checked)setTimeout(()=>{if(!busy)runFlow()},200);
+ }catch(e){out.innerHTML="<span class=\"bad-t\">生成失敗："+esc(e.message||e)+"</span>"}
+ finally{btn.disabled=false;btn.textContent="✨ 自動生成流程並指派角色"}
+}
+
+/* ---------- PWA：安裝、離線、通知、更新 ---------- */
+let deferredInstall=null,swState="未啟用",persistState="未知",reloadingForSw=false;
+const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||matchMedia("(display-mode: window-controls-overlay)").matches||matchMedia("(display-mode: minimal-ui)").matches||navigator.standalone===true;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const isHttp=/^https?:$/.test(location.protocol);
+function installBtnSync(){const b=$("#btnInstall");if(b)b.hidden=isStandalone()||!(isHttp||deferredInstall)}
+async function installApp(){
+ if(deferredInstall){const d=deferredInstall;deferredInstall=null;installBtnSync();d.prompt();try{const r=await d.userChoice;toast(r.outcome==="accepted"?"安裝中…完成後可從桌面／主畫面開啟":"已取消安裝")}catch(e){}return}
+ if(isStandalone()){toast("已經是以 App 方式開啟");return}
+ alert(!isHttp?"目前是用 file:// 開啟，瀏覽器不允許安裝成 App。\n請把整個資料夾放到 https 網站，或在資料夾內執行 python3 -m http.server 8080，再開啟 http://localhost:8080。"
+  :isIOS?"iPhone／iPad：請用 Safari 開啟，點下方「分享」→「加入主畫面」。"
+  :"電腦 Chrome／Edge：網址列右側的「安裝」圖示，或選單 →「投射、儲存和分享」→「安裝為應用程式」。\nAndroid Chrome：選單 →「安裝應用程式」。\n（若沒有出現選項，可能已安裝，或瀏覽器還在快取中，稍後再試。）");
+}
+async function bgNotify(title,body,tag,ask){
+ try{
+  if(!("Notification" in window))return false;
+  if(Notification.permission==="default"&&ask)await Notification.requestPermission();
+  if(Notification.permission!=="granted")return false;
+  const o={body:String(body||""),icon:"icons/icon-192.png",badge:"icons/icon-192.png",tag:tag||"xx"};
+  const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();
+  if(reg&&reg.showNotification)await reg.showNotification(title,o);else new Notification(title,o);
+  return true;
+ }catch(e){return false}
+}
+function pwaInit(){
+ addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;installBtnSync();if(activeTab==="set")renderSet()});
+ addEventListener("appinstalled",()=>{deferredInstall=null;installBtnSync();toast("已安裝，之後可從桌面／主畫面開啟")});
+ const b=$("#btnInstall");if(b)b.onclick=installApp;installBtnSync();
+ matchMedia("(display-mode: standalone)").addEventListener&&matchMedia("(display-mode: standalone)").addEventListener("change",installBtnSync);
+ if("serviceWorker" in navigator&&isHttp){
+  navigator.serviceWorker.register("./sw.js").then(reg=>{
+   swState="已啟用（可離線開啟）";if(activeTab==="set")renderSet();
+   reg.addEventListener("updatefound",()=>{const w=reg.installing;if(w)w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)offerUpdate(w)})});
+   if(reg.waiting&&navigator.serviceWorker.controller)offerUpdate(reg.waiting);
+  }).catch(e=>{swState="註冊失敗："+(e&&e.message||e)});
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(reloadingForSw)return;reloadingForSw=true;location.reload()});
+ }else swState=isHttp?"此瀏覽器不支援":"需用 http(s) 開啟才能啟用（file:// 不支援）";
+ addEventListener("online",()=>toast("已恢復連線"));
+ addEventListener("offline",()=>toast("目前離線：離線示範與已快取的功能仍可使用"));
+ if(navigator.storage&&navigator.storage.persisted)navigator.storage.persisted().then(v=>{persistState=v?"已持久化":"尚未持久化";if(activeTab==="set")renderSet()}).catch(()=>{});
+ const q=new URLSearchParams(location.search).get("tab");if(q&&["run","team","set","layout"].includes(q))switchTab(q);
+}
+function offerUpdate(w){
+ if(busy){toast("有新版本，流程結束後重新整理即可更新");return}
+ if(confirm("有新版本可用，現在更新並重新載入嗎？"))w.postMessage("SKIP_WAITING");
+}
+function pwaHtml(){
+ const mode=isStandalone()?"已安裝的 App 視窗":"一般瀏覽器分頁";
+ return `<div class="sec" id="sec-pwa"><details><summary>App 安裝與離線（PWA）</summary>
+  <ul class="mut" style="margin:6px 0 6px 18px;padding:0"><li>開啟方式：${mode}（${esc(location.protocol)}）</li><li>離線快取（Service Worker）：${esc(swState)}</li><li>可安裝：${deferredInstall?"可以，按下方按鈕":isStandalone()?"已安裝":isHttp?"瀏覽器尚未提示（或不支援自動提示，可看說明）":"需用 https／localhost 開啟"}</li><li>儲存空間：${esc(persistState)}</li><li>網路：${navigator.onLine?"連線中":"離線"}</li></ul>
+  <div class="row"><button class="pri" data-act="installapp">⬇ 安裝成 App</button><button class="sm" data-act="persist">請求持久儲存</button></div>
+  <p class="mut">設定與虛擬工作區都存在這台裝置的瀏覽器儲存空間；「持久儲存」可降低被系統自動清除的機率。換裝置請用「匯出 JSON」。</p></details></div>`;
+}
+
 let lastDG="";
 function goalHint(force){
  const f=S.flows[S.cf],g=$("#goal");if(!g)return;
@@ -2237,7 +2593,7 @@ function goalHint(force){
  O.layout=sanitizeLayout(S.layout)||defaultLayout();S.layout=O.layout;
  if(isFresh&&!S.roles.length&&!S.flows.length)sample();else seedIfEmptyMem();
  buildEditorUI();updateSizeUI();updateUndo();syncSound();fillHist();
- rebuild();addPet();renderAll();goalHint();switchTab("run");fit();
+ rebuild();addPet();ensureBuiltinMcp();save();renderAll();goalHint();$("#genBtn").onclick=genFlow;schedInit();switchTab("run");fit();pwaInit();
  new ResizeObserver(()=>fit()).observe($("#stage"));addEventListener("resize",fit);
  requestAnimationFrame(t=>{last=t;frame(t)});
  if(!helpSeen())setTimeout(openHelp,400);
